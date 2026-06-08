@@ -6,10 +6,29 @@
 import express from 'express';
 import cors    from 'cors';
 import { spawn } from 'child_process';
-import { existsSync } from 'fs';
+import { existsSync, writeFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const app  = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
+
+// ──────────────────────────────────────────────
+// Write cookies.txt from env var if provided
+// On Render: set YOUTUBE_COOKIES_B64 = base64-encoded contents of cookies.txt
+// ──────────────────────────────────────────────
+const COOKIES_PATH = join(__dirname, 'cookies.txt');
+
+if (process.env.YOUTUBE_COOKIES_B64) {
+  try {
+    const decoded = Buffer.from(process.env.YOUTUBE_COOKIES_B64, 'base64').toString('utf-8');
+    writeFileSync(COOKIES_PATH, decoded, 'utf-8');
+    console.log('cookies.txt written from YOUTUBE_COOKIES_B64 env var');
+  } catch (e) {
+    console.error('Failed to write cookies.txt:', e.message);
+  }
+}
 
 // Resolve yt-dlp binary
 // On Linux/Docker (Render, Railway, etc.) it's on PATH at /usr/local/bin/yt-dlp
@@ -75,10 +94,15 @@ function detectPlatform(url) {
   } catch { return null; }
 }
 
+/** Build extra yt-dlp args to apply when cookies are available */
+function cookieArgs() {
+  return existsSync(COOKIES_PATH) ? ['--cookies', COOKIES_PATH] : [];
+}
+
 /** Run yt-dlp and collect stdout as a string. Rejects on non-zero exit. */
 function ytDlpJson(args) {
   return new Promise((resolve, reject) => {
-    const proc = spawn(YTDLP_BIN, [...args, '--ffmpeg-location', FFMPEG_BIN], { windowsHide: true });
+    const proc = spawn(YTDLP_BIN, [...args, ...cookieArgs(), '--ffmpeg-location', FFMPEG_BIN], { windowsHide: true });
     let out = '', err = '';
     proc.stdout.on('data', d => (out += d));
     proc.stderr.on('data', d => (err += d));
@@ -93,7 +117,7 @@ function ytDlpJson(args) {
 
 /** Spawn yt-dlp and pipe stdout to res. Returns the child process. */
 function ytDlpStream(args, res) {
-  const proc = spawn(YTDLP_BIN, [...args, '--ffmpeg-location', FFMPEG_BIN], { windowsHide: true });
+  const proc = spawn(YTDLP_BIN, [...args, ...cookieArgs(), '--ffmpeg-location', FFMPEG_BIN], { windowsHide: true });
   proc.stdout.pipe(res);
   proc.stderr.on('data', d => process.stderr.write(d));
   proc.on('error', e => {
@@ -106,8 +130,9 @@ function ytDlpStream(args, res) {
 
 /** Map yt-dlp error text → user-friendly message */
 function friendlyError(msg) {
+  if (msg.includes('Sign in to confirm') || msg.includes('bot') || msg.includes('cookies'))
+    return { status: 503, error: 'YouTube is requesting verification. Please try again in a moment.' };
   if (msg.includes('not installed'))              return { status: 503, error: msg };
-  if (msg.includes('Private video') || msg.includes('login required') || msg.includes('This video is private'))
     return { status: 403, error: 'This video is private and cannot be downloaded.' };
   if (msg.includes('not available') || msg.includes('removed') || msg.includes('does not exist') || msg.includes('404'))
     return { status: 404, error: 'Video not found or has been removed.' };
