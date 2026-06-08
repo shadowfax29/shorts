@@ -118,6 +118,18 @@ function friendlyError(msg) {
 }
 
 // ──────────────────────────────────────────────
+// GET /api/health — verify yt-dlp is reachable
+// ──────────────────────────────────────────────
+app.get('/api/health', async (req, res) => {
+  try {
+    const version = await ytDlpJson(['--version']);
+    res.json({ ok: true, ytdlp: version.trim(), platform: process.platform });
+  } catch (err) {
+    res.status(503).json({ ok: false, error: err.message });
+  }
+});
+
+// ──────────────────────────────────────────────
 // GET /api/info?url=…
 // ──────────────────────────────────────────────
 app.get('/api/info', async (req, res) => {
@@ -169,7 +181,10 @@ app.get('/api/info', async (req, res) => {
   } catch (err) {
     console.error('[/api/info]', err.message);
     const { status, error } = friendlyError(err.message);
-    res.status(status).json({ error });
+    // In development expose the raw error for debugging
+    const body = { error };
+    if (process.env.NODE_ENV !== 'production') body.detail = err.message;
+    res.status(status).json(body);
   }
 });
 
