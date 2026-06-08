@@ -7,7 +7,7 @@ import ErrorScreen from './components/ErrorScreen.jsx';
 import Toast from './components/Toast.jsx';
 import './App.css';
 
-const API = '';
+const API = import.meta.env.VITE_API_URL || '';
 
 // App-level state machine:  idle → loading → result | error
 export default function App() {

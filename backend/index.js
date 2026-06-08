@@ -11,8 +11,13 @@ import { existsSync } from 'fs';
 const app  = express();
 const PORT = 3001;
 
-// Resolve yt-dlp binary — try PATH first, fall back to known winget install location
+// Resolve yt-dlp binary
+// On Linux/Docker (Render, Railway, etc.) it's on PATH at /usr/local/bin/yt-dlp
+// On Windows dev machine, winget installs to a non-PATH location — find it manually
 function resolveBin(name) {
+  // On Linux, binaries are on PATH — use directly
+  if (process.platform !== 'win32') return name;
+
   const wingetBase = `${process.env.LOCALAPPDATA}\\Microsoft\\WinGet\\Packages`;
   const candidates = {
     'yt-dlp': [
@@ -30,7 +35,6 @@ function resolveBin(name) {
       return c;
     }
   }
-  // Fall back to PATH
   console.log(`${name} not found in winget paths, falling back to PATH`);
   return name;
 }
@@ -41,7 +45,20 @@ const FFMPEG_BIN = resolveBin('ffmpeg');
 console.log(`yt-dlp  → ${YTDLP_BIN}`);
 console.log(`ffmpeg  → ${FFMPEG_BIN}`);
 
-app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:4173'] }));
+app.use(cors({
+  origin: (origin, cb) => {
+    const allowed = [
+      'http://localhost:5173',
+      'http://localhost:4173',
+    ];
+    // Allow any Vercel deployment URL + any custom domain
+    if (!origin || allowed.includes(origin) || origin.endsWith('.vercel.app')) {
+      cb(null, true);
+    } else {
+      cb(null, true); // open for now — restrict to your domain in production
+    }
+  }
+}));
 app.use(express.json());
 
 // ──────────────────────────────────────────────
