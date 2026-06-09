@@ -28,7 +28,6 @@ function formatBytes(bytes) {
 export default function VideoResult({ info, url, onDownload, onReset, downloading }) {
   const { platform, title, thumbnail, duration, uploader, qualities } = info;
   const isYouTube = platform === 'youtube';
-console.log(info,"hello")
   const [selected, setSelected] = useState(qualities?.[0]?.formatId ?? null);
   const selectedQ    = qualities?.find(q => q.formatId === selected);
 const thumbnailSrc = getThumbnailSrc(platform, thumbnail);
