@@ -221,6 +221,28 @@ app.get('/api/test-youtube', async (req, res) => {
   }
 });
 
+app.get('/api/formats', async (req, res) => {
+  const { url } = req.query;
+
+  if (!url) {
+    return res.status(400).json({
+      error: 'url query parameter required'
+    });
+  }
+
+  try {
+    const result = await ytDlpJson([
+      url,
+      '--list-formats',
+      '--no-playlist'
+    ]);
+
+    res.type('text/plain').send(result);
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});
+
 // ──────────────────────────────────────────────
 // GET /api/info?url=…
 // ──────────────────────────────────────────────
