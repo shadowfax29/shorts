@@ -58,9 +58,17 @@ function resolveBin(name) {
   return name;
 }
 
-const YTDLP_BIN  = resolveBin('yt-dlp');
-const FFMPEG_BIN = resolveBin('ffmpeg');
+// const YTDLP_BIN  = resolveBin('yt-dlp');
+// const FFMPEG_BIN = resolveBin('ffmpeg');
+const YTDLP_BIN =
+  process.platform === "win32"
+    ? resolveBin("yt-dlp")
+    : "/usr/local/bin/yt-dlp";
 
+const FFMPEG_BIN =
+  process.platform === "win32"
+    ? resolveBin("ffmpeg")
+    : "/usr/bin/ffmpeg";
 console.log(`yt-dlp  → ${YTDLP_BIN}`);
 console.log(`ffmpeg  → ${FFMPEG_BIN}`);
 
@@ -151,6 +159,58 @@ app.get('/api/health', async (req, res) => {
     res.json({ ok: true, ytdlp: version.trim(), platform: process.platform });
   } catch (err) {
     res.status(503).json({ ok: false, error: err.message });
+  }
+});
+
+
+app.get('/api/debug', async (req, res) => {
+  try {
+    const version = await ytDlpJson(['--version']);
+
+    res.json({
+      success: true,
+      platform: process.platform,
+      nodeVersion: process.version,
+      ytdlpVersion: version,
+      ytdlpPath: YTDLP_BIN,
+      ffmpegPath: FFMPEG_BIN,
+      path: process.env.PATH,
+      cookiesPresent: existsSync(COOKIES_PATH),
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message,
+      ytdlpPath: YTDLP_BIN,
+      ffmpegPath: FFMPEG_BIN,
+      path: process.env.PATH,
+    });
+  }
+});
+
+
+app.get('/api/test-youtube', async (req, res) => {
+  try {
+    const result = await ytDlpJson([
+      'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      '--dump-json',
+      '--no-playlist',
+      '--no-warnings'
+    ]);
+
+    const meta = JSON.parse(result);
+
+    res.json({
+      success: true,
+      title: meta.title,
+      uploader: meta.uploader,
+      duration: meta.duration,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
   }
 });
 
