@@ -150,6 +150,13 @@ function friendlyError(msg) {
   return { status: 500, error: 'Failed to fetch video info. The video may be unavailable.' };
 }
 
+app.get("/", (req, res) => {
+  res.json({
+    status: "online",
+    service: "StreamSnap API"
+  });
+});
+
 // ──────────────────────────────────────────────
 // GET /api/health — verify yt-dlp is reachable
 // ──────────────────────────────────────────────
