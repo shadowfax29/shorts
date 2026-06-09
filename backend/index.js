@@ -9,24 +9,33 @@ import { spawn } from 'child_process';
 import { existsSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { friendlyError, cookieArgs, COOKIE_FILES } from './lib/helpers.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app  = express();
 const PORT = process.env.PORT || 3001;
 
 // ──────────────────────────────────────────────
-// Write cookies.txt from env var if provided
-// On Render: set YOUTUBE_COOKIES_B64 = base64-encoded contents of cookies.txt
+// Write per-platform cookie files from env vars
+// On Render set: YOUTUBE_COOKIES_B64, INSTAGRAM_COOKIES_B64, TIKTOK_COOKIES_B64
 // ──────────────────────────────────────────────
-const COOKIES_PATH = join(__dirname, 'cookies.txt');
+const COOKIES_DIR = __dirname;
 
-if (process.env.YOUTUBE_COOKIES_B64) {
-  try {
-    const decoded = Buffer.from(process.env.YOUTUBE_COOKIES_B64, 'base64').toString('utf-8');
-    writeFileSync(COOKIES_PATH, decoded, 'utf-8');
-    console.log('cookies.txt written from YOUTUBE_COOKIES_B64 env var');
-  } catch (e) {
-    console.error('Failed to write cookies.txt:', e.message);
+const COOKIE_ENV_MAP = {
+  YOUTUBE_COOKIES_B64:   COOKIE_FILES.youtube,
+  INSTAGRAM_COOKIES_B64: COOKIE_FILES.instagram,
+  TIKTOK_COOKIES_B64:    COOKIE_FILES.tiktok,
+};
+
+for (const [envKey, filename] of Object.entries(COOKIE_ENV_MAP)) {
+  if (process.env[envKey]) {
+    try {
+      const decoded = Buffer.from(process.env[envKey], 'base64').toString('utf-8');
+      writeFileSync(join(COOKIES_DIR, filename), decoded, 'utf-8');
+      console.log(`${filename} written from ${envKey}`);
+    } catch (e) {
+      console.error(`Failed to write ${filename}:`, e.message);
+    }
   }
 }
 
@@ -102,15 +111,10 @@ function detectPlatform(url) {
   } catch { return null; }
 }
 
-/** Build extra yt-dlp args to apply when cookies are available */
-function cookieArgs() {
-  return existsSync(COOKIES_PATH) ? ['--cookies', COOKIES_PATH] : [];
-}
-
 /** Run yt-dlp and collect stdout as a string. Rejects on non-zero exit. */
-function ytDlpJson(args) {
+function ytDlpJson(args, platform) {
   return new Promise((resolve, reject) => {
-    const proc = spawn(YTDLP_BIN, [...args, ...cookieArgs(), '--ffmpeg-location', FFMPEG_BIN], { windowsHide: true });
+    const proc = spawn(YTDLP_BIN, [...args, ...cookieArgs(platform, COOKIES_DIR), '--ffmpeg-location', FFMPEG_BIN], { windowsHide: true });
     let out = '', err = '';
     proc.stdout.on('data', d => (out += d));
     proc.stderr.on('data', d => (err += d));
@@ -124,8 +128,8 @@ function ytDlpJson(args) {
 }
 
 /** Spawn yt-dlp and pipe stdout to res. Returns the child process. */
-function ytDlpStream(args, res) {
-  const proc = spawn(YTDLP_BIN, [...args, ...cookieArgs(), '--ffmpeg-location', FFMPEG_BIN], { windowsHide: true });
+function ytDlpStream(args, res, platform) {
+  const proc = spawn(YTDLP_BIN, [...args, ...cookieArgs(platform, COOKIES_DIR), '--ffmpeg-location', FFMPEG_BIN], { windowsHide: true });
   proc.stdout.pipe(res);
   proc.stderr.on('data', d => process.stderr.write(d));
   proc.on('error', e => {
@@ -136,19 +140,6 @@ function ytDlpStream(args, res) {
   return proc;
 }
 
-/** Map yt-dlp error text → user-friendly message */
-function friendlyError(msg) {
-  if (msg.includes('Sign in to confirm') || msg.includes('bot') || msg.includes('cookies'))
-    return { status: 503, error: 'YouTube is requesting verification. Please try again in a moment.' };
-  if (msg.includes('not installed'))              return { status: 503, error: msg };
-    return { status: 403, error: 'This video is private and cannot be downloaded.' };
-  if (msg.includes('not available') || msg.includes('removed') || msg.includes('does not exist') || msg.includes('404'))
-    return { status: 404, error: 'Video not found or has been removed.' };
-  if (msg.includes('Unsupported URL'))            return { status: 400, error: 'That URL format is not supported.' };
-  if (msg.includes('blocked') || msg.includes('unavailable in your country'))
-    return { status: 403, error: 'This video is not available in this region.' };
-  return { status: 500, error: 'Failed to fetch video info. The video may be unavailable.' };
-}
 
 app.get("/", (req, res) => {
   res.json({
@@ -256,7 +247,7 @@ app.get('/api/info', async (req, res) => {
   });
 
   try {
-    const raw  = await ytDlpJson([ url, '--dump-json', '--no-playlist', '--no-warnings' ]);
+    const raw  = await ytDlpJson([ url, '--dump-json', '--no-playlist', '--no-warnings' ], platform);
     const meta = JSON.parse(raw);
 
     // Build quality list for YouTube only
@@ -329,7 +320,8 @@ app.get('/api/download', (req, res) => {
 
   const proc = ytDlpStream(
     [ url, '-f', format, '--merge-output-format', 'mp4', '--no-playlist', '-o', '-' ],
-    res
+    res,
+    platform
   );
 
   proc.on('close', (code) => {
@@ -351,7 +343,7 @@ app.get('/api/thumbnail', async (req, res) => {
 
   try {
     // Ask yt-dlp for just the thumbnail URL (fast — no format resolution)
-    const raw  = await ytDlpJson([ videoUrl, '--dump-json', '--no-playlist', '--no-warnings', '--skip-download' ]);
+    const raw  = await ytDlpJson([ videoUrl, '--dump-json', '--no-playlist', '--no-warnings', '--skip-download' ], detectPlatform(videoUrl));
     const meta = JSON.parse(raw);
     const thumbUrl = meta.thumbnail;
     if (!thumbUrl) return res.status(404).end();
