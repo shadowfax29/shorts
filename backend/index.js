@@ -1,5 +1,5 @@
 /**
- * StreamSnap API Server
+ * DownloadShorts API Server
  * Wraps yt-dlp via child_process — no wrapper package required.
  * Requires yt-dlp + ffmpeg on PATH.
  */
@@ -145,7 +145,7 @@ function ytDlpStream(args, res, platform) {
 app.get("/", (req, res) => {
   res.json({
     status: "online",
-    service: "StreamSnap API"
+    service: "DownloadShorts API"
   });
 });
 
@@ -400,6 +400,6 @@ app.get('/api/thumbnail', async (req, res) => {
 
 // ──────────────────────────────────────────────
 app.listen(PORT, () => {
-  console.log(`StreamSnap API → http://localhost:${PORT}`);
+  console.log(`DownloadShorts API → http://localhost:${PORT}`);
   console.log('Requires yt-dlp + ffmpeg on PATH.');
 });

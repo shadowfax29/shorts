@@ -4,7 +4,7 @@ export default function Nav() {
   return (
     <header className={styles.nav}>
       <div className={styles.inner}>
-        <div className={styles.logo}>StreamSnap</div>
+        <div className={styles.logo}>DownloadShorts</div>
         <nav className={styles.links}>
           <a href="#how-it-works">How it works</a>
         </nav>

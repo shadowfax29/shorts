@@ -112,7 +112,7 @@ export default function LandingPage({ onSubmit }) {
           <div className={styles.stepsGrid}>
             {[
               { icon: 'content_copy',  color: 'var(--primary-fixed)',    textColor: 'var(--on-primary-fixed)',              title: 'Copy URL',        desc: 'Find the video you want and copy its URL from the browser or app share menu.' },
-              { icon: 'content_paste', color: 'var(--secondary-fixed)',  textColor: 'var(--on-secondary-fixed-variant)',    title: 'Paste & Select',  desc: 'Paste the link into StreamSnap. For YouTube, choose your preferred resolution.' },
+              { icon: 'content_paste', color: 'var(--secondary-fixed)',  textColor: 'var(--on-secondary-fixed-variant)',    title: 'Paste & Select',  desc: 'Paste the link into DownloadShorts. For YouTube, choose your preferred resolution.' },
               { icon: 'download_done', color: 'var(--tertiary-fixed)',   textColor: 'var(--on-tertiary-fixed-variant)',     title: 'Enjoy Offline',   desc: 'Hit Download and your video saves directly to your device in seconds.' },
             ].map((step) => (
               <div key={step.title} className={styles.stepCard}>

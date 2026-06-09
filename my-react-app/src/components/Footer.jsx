@@ -5,8 +5,8 @@ export default function Footer() {
     <footer className={styles.footer}>
       <div className={styles.inner}>
         <div className={styles.brand}>
-          <span className={styles.logo}>StreamSnap</span>
-          <p>© 2025 StreamSnap. All rights reserved.</p>
+          <span className={styles.logo}>DownloadShorts</span>
+          <p>© 2025 DownloadShorts. All rights reserved.</p>
         </div>
         <nav className={styles.links}>
           <a href="#">Privacy Policy</a>
