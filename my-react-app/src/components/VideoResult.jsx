@@ -29,6 +29,10 @@ function formatBytes(bytes) {
   return `${(bytes / 1e3).toFixed(0)} KB`;
 }
 
+function getThumbnailSrc(platform, thumbnail) {
+  return thumbnail || null;
+}
+
 export default function VideoResult({ info, url, onDownload, onReset, downloading }) {
   const { platform, title, thumbnail, duration, uploader, qualities } = info;
   const isYouTube = platform === 'youtube';
