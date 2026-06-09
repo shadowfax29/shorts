@@ -293,7 +293,8 @@ app.get('/api/download', (req, res) => {
   // TikTok / Instagram → best single-file mp4 (no watermark for TikTok via format selector)
   let format;
   if (platform === 'youtube' && formatId) {
-    format = `${formatId}+bestaudio[ext=m4a]/${formatId}+bestaudio/best`;
+    // format = `${formatId}+bestaudio[ext=m4a]/${formatId}+bestaudio/best`;
+    format = `bestvideo[height<=${req.query.height || 720}]+bestaudio/best`;
   } else if (platform === 'tiktok') {
     // prefer non-watermarked format (format id often contains 'nowatermark' or is play_addr)
     format = 'best[format_id*=no_watermark]/best[ext=mp4]/best';
