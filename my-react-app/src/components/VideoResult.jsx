@@ -2,14 +2,8 @@ import { useState } from 'react';
 import styles from './VideoResult.module.css';
 import PlatformBadge from './PlatformBadge.jsx';
 
-function getThumbnailSrc(platform, thumbnail, videoUrl) {
-  if (!thumbnail) return null;
-  // Instagram CDN tokens expire and are session-locked.
-  // Pass the original video page URL so the backend can re-fetch a fresh thumbnail.
-  if (platform === 'instagram' && videoUrl) {
-    return `/api/thumbnail?videoUrl=${encodeURIComponent(videoUrl)}`;
-  }
-  return thumbnail;
+function getThumbnailSrc(platform, thumbnail) {
+  return thumbnail || null;
 }
 
 function formatDuration(secs) {
