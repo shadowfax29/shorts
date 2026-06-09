@@ -10,6 +10,7 @@ import { existsSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { friendlyError, cookieArgs, COOKIE_FILES } from './lib/helpers.js';
+import { scrapeInstagramReel } from './lib/instagramScraper.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app  = express();
@@ -247,6 +248,12 @@ app.get('/api/info', async (req, res) => {
   });
 
   try {
+    // Instagram: scrape page directly — no yt-dlp, no cookies needed for public reels
+    if (platform === 'instagram') {
+      const { videoUrl, title, thumbnail } = await scrapeInstagramReel(url);
+      return res.json({ platform, title, thumbnail, duration: null, uploader: null, qualities: [], videoUrl });
+    }
+
     const raw  = await ytDlpJson([ url, '--dump-json', '--no-playlist', '--no-warnings' ], platform);
     const meta = JSON.parse(raw);
 
@@ -297,9 +304,32 @@ app.get('/api/info', async (req, res) => {
 // GET /api/download?url=…&platform=…&formatId=…
 // Streams video directly to the browser
 // ──────────────────────────────────────────────
-app.get('/api/download', (req, res) => {
+app.get('/api/download', async (req, res) => {
   const { url, platform, formatId } = req.query;
   if (!url) return res.status(400).json({ error: 'URL is required.' });
+
+  // Instagram: scrape CDN URL and proxy-stream it
+  if (platform === 'instagram') {
+    try {
+      const { videoUrl } = await scrapeInstagramReel(url);
+      const upstream = await fetch(videoUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Referer': 'https://www.instagram.com/',
+        },
+      });
+      if (!upstream.ok) return res.status(502).json({ error: 'Failed to fetch video from Instagram CDN.' });
+      res.setHeader('Content-Type', upstream.headers.get('content-type') || 'video/mp4');
+      res.setHeader('Content-Disposition', 'attachment; filename="reel.mp4"');
+      const ct = upstream.headers.get('content-length');
+      if (ct) res.setHeader('Content-Length', ct);
+      upstream.body.pipeTo(new WritableStream({ write(chunk) { res.write(chunk); }, close() { res.end(); } }));
+    } catch (err) {
+      console.error('[/api/download instagram]', err.message);
+      res.status(503).json({ error: err.message });
+    }
+    return;
+  }
 
   // Format selector:
   // YouTube → merge chosen video stream with best audio
