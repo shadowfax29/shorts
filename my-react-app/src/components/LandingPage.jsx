@@ -11,14 +11,28 @@ export default function LandingPage({ onSubmit }) {
 
   const platform = detectPlatform(url);
 
-  const handlePaste = async () => {
-    try {
-      const text = await navigator.clipboard.readText();
-      if (text) { setUrl(text.trim()); setError(''); }
-    } catch {
-      inputRef.current?.focus();
+const handlePaste = async () => {
+  try {
+    const text = await navigator.clipboard.readText();
+    const trimmed = text.trim();
+
+    if (!trimmed) return;
+
+    setUrl(trimmed);
+    setError('');
+
+    if (!detectPlatform(trimmed)) {
+      setError('Only YouTube, TikTok, and Instagram Reels URLs are supported.');
+      return;
     }
-  };
+
+    setTimeout(() => {
+      onSubmit(trimmed);
+    }, 2000); // 2 seconds
+  } catch {
+    inputRef.current?.focus();
+  }
+};
 
   const handleSubmit = (e) => {
     e?.preventDefault();
@@ -41,7 +55,6 @@ export default function LandingPage({ onSubmit }) {
         <div className={styles.blobBtm}  aria-hidden="true" />
 
         <div className={styles.heroContent}>
-          <img src="/logo.png" alt="DownloadShorts" className={styles.heroLogo} />
           <h1 className={styles.heroTitle}>
             Download videos from your favorite platforms.
           </h1>
@@ -50,32 +63,41 @@ export default function LandingPage({ onSubmit }) {
           <form className={styles.inputForm} onSubmit={handleSubmit} noValidate>
             <div className={`${styles.inputWrap} ${focused ? styles.inputFocused : ''}`}>
               <span className={`material-symbols-outlined ${styles.inputIcon}`}>link</span>
-              <input
-                ref={inputRef}
-                className={styles.input}
-                type="url"
-                value={url}
-                onChange={(e) => { setUrl(e.target.value); setError(''); }}
-                onFocus={() => setFocused(true)}
-                onBlur={() => setFocused(false)}
-                placeholder="Paste your video link here…"
-                aria-label="Video URL"
-                autoComplete="off"
-                spellCheck={false}
-              />
+           <input
+  ref={inputRef}
+  className={styles.input}
+  type="url"
+  value={url}
+  onChange={(e) => {
+    setUrl(e.target.value);
+    setError('');
+  }}
+  onPaste={(e) => {
+    setTimeout(() => {
+      const pastedText = e.target.value.trim();
+
+      if (detectPlatform(pastedText)) {
+        onSubmit(pastedText);
+      }
+    }, 0);
+  }}
+  placeholder="Paste your video link here…"
+/>
               {url ? (
                 <button type="button" className={styles.clearBtn} onClick={() => { setUrl(''); setError(''); }} aria-label="Clear">
                   <span className="material-symbols-outlined">close</span>
                 </button>
               ) : (
-                <button type="button" className={styles.pasteBtn} onClick={handlePaste}>
-                  Paste
-                </button>
+           
+                 <button type="button" className={styles.downloadBtn} onClick={handlePaste}>
+                <span> Paste</span>
+                <span className="material-symbols-outlined icon-fill"></span>
+              </button>
               )}
-              <button type="submit" className={styles.downloadBtn}>
+              {/* <button type="submit" className={styles.downloadBtn}>
                 <span>Download</span>
                 <span className="material-symbols-outlined icon-fill">download</span>
-              </button>
+              </button> */}
             </div>
 
             {platform && (
