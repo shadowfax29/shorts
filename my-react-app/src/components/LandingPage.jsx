@@ -41,6 +41,7 @@ export default function LandingPage({ onSubmit }) {
         <div className={styles.blobBtm}  aria-hidden="true" />
 
         <div className={styles.heroContent}>
+          <img src="/logo.png" alt="DownloadShorts" className={styles.heroLogo} />
           <h1 className={styles.heroTitle}>
             Download videos from your favorite platforms.
           </h1>

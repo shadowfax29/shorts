@@ -36,6 +36,13 @@
   margin-inline: auto;
 }
 
+.heroLogo {
+  width: 200px;
+  height: auto;
+  object-fit: contain;
+  margin-bottom: 1.5rem;
+}
+
 .heroTitle {
   font-size: clamp(2rem, 5vw, 3.5rem);
   font-weight: 700;
