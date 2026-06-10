@@ -1,0 +1,123 @@
+.page {
+  min-height: calc(100vh - 120px);
+  padding: 3rem 1rem 4rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Hero */
+.hero {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.hero h1 {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--on-surface);
+  margin-bottom: 0.4rem;
+}
+
+.hero h1 span {
+  color: var(--primary);
+}
+
+.hero p {
+  font-size: 15px;
+  color: var(--on-surface-variant);
+}
+
+/* Card */
+.card {
+  background: var(--surface-container);
+  border: 1px solid var(--outline-variant);
+  border-radius: 16px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 480px;
+}
+
+/* Fields */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1.25rem;
+}
+
+.field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--on-surface);
+}
+
+.required {
+  color: #e53e3e;
+  margin-left: 2px;
+}
+
+.field input,
+.field textarea {
+  background: var(--surface);
+  border: 1px solid var(--outline-variant);
+  border-radius: 8px;
+  padding: 0.65rem 0.9rem;
+  font-size: 14px;
+  color: var(--on-surface);
+  outline: none;
+  resize: vertical;
+  transition: border-color 0.2s;
+  font-family: inherit;
+}
+
+.field input::placeholder,
+.field textarea::placeholder {
+  color: var(--outline);
+}
+
+.field input:focus,
+.field textarea:focus {
+  border-color: var(--primary);
+}
+
+/* Error */
+.error {
+  font-size: 12px;
+  color: #e53e3e;
+  margin-bottom: 0.75rem;
+}
+
+/* Button */
+.btn {
+  width: 100%;
+  padding: 0.8rem;
+  background: linear-gradient(135deg, #a78bfa, #818cf8);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn:hover {
+  opacity: 0.88;
+}
+
+/* Direct email */
+.directEmail {
+  margin-top: 1.5rem;
+  font-size: 13px;
+  color: var(--on-surface-variant);
+}
+
+.directEmail a {
+  color: var(--on-surface-variant);
+  text-decoration: underline;
+}
+
+.directEmail a:hover {
+  color: var(--primary);
+}

@@ -1,10 +1,14 @@
 import { useState, useCallback } from 'react';
+import { Routes, Route } from 'react-router-dom';
 import Nav from './components/Nav.jsx';
 import Footer from './components/Footer.jsx';
 import LandingPage from './components/LandingPage.jsx';
 import VideoResult from './components/VideoResult.jsx';
 import ErrorScreen from './components/ErrorScreen.jsx';
 import Toast from './components/Toast.jsx';
+import PrivacyPolicy from './components/PrivacyPolicy.jsx';
+import TermsAndConditions from './components/TermsAndConditions.jsx';
+import Contact from './components/Contact.jsx';
 import './App.css';
 
 const API = import.meta.env.VITE_API_URL || '';
@@ -95,24 +99,33 @@ export default function App() {
       <Nav />
 
       <main style={{ flex: 1 }}>
-        {phase === 'idle' && (
-          <LandingPage onSubmit={handleFetch} />
-        )}
-        {phase === 'loading' && (
-          <LoadingScreen />
-        )}
-        {phase === 'result' && videoInfo && (
-          <VideoResult
-            info={videoInfo}
-            url={url}
-            onDownload={handleDownload}
-            onReset={handleReset}
-            downloading={downloading}
-          />
-        )}
-        {phase === 'error' && (
-          <ErrorScreen message={errorMsg} onReset={handleReset} />
-        )}
+        <Routes>
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="*" element={
+            <>
+              {phase === 'idle' && (
+                <LandingPage onSubmit={handleFetch} />
+              )}
+              {phase === 'loading' && (
+                <LoadingScreen />
+              )}
+              {phase === 'result' && videoInfo && (
+                <VideoResult
+                  info={videoInfo}
+                  url={url}
+                  onDownload={handleDownload}
+                  onReset={handleReset}
+                  downloading={downloading}
+                />
+              )}
+              {phase === 'error' && (
+                <ErrorScreen message={errorMsg} onReset={handleReset} />
+              )}
+            </>
+          } />
+        </Routes>
       </main>
 
       <Footer />

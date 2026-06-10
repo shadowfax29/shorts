@@ -20,7 +20,8 @@
 .brand p { font-size: 12px; color: var(--on-surface-variant); }
 
 .links { display: flex; gap: 1.5rem; flex-wrap: wrap; }
-.links a {
+.links a,
+.links a:visited {
   font-size: 12px;
   color: var(--on-surface-variant);
   text-decoration: underline;
