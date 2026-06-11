@@ -210,43 +210,93 @@ Three simple steps to download Instagram Reels in HD quality.
 <section className={styles.seoSection}>
   <div className={styles.sectionInner}>
 
-    <h2>Download Instagram Reels Without Watermark</h2>
+    <div className={styles.seoHeader}>
+      <span className={styles.seoBadge}>
+        Instagram Reels Downloader
+      </span>
 
-    <p>
-      DownloadShorts is a free Instagram Reels downloader
-      that lets you save Instagram Reel videos and audio
-      in HD quality. Simply paste your Instagram Reel URL
-      and download instantly.
-    </p>
+      <h2>
+        Download Instagram Reels Without Watermark
+      </h2>
 
-    <h2>How to Download Instagram Reels</h2>
+      <p>
+        DownloadShorts is a free online Instagram Reels downloader
+        that lets you save Instagram Reel videos and audio in HD
+        quality. No login, no registration, and no watermark.
+      </p>
+    </div>
 
-    <ol>
-      <li>Open Instagram and copy the Reel link.</li>
-      <li>Paste the URL into DownloadShorts.</li>
-      <li>Click Download and save your Reel.</li>
-    </ol>
+    <div className={styles.seoGrid}>
 
-    <h2>Why Use DownloadShorts?</h2>
+      <div className={styles.seoCard}>
+        <h3>How to Download Instagram Reels</h3>
 
-    <ul>
-      <li>Download Instagram Reels without watermark</li>
-      <li>High quality HD downloads</li>
-      <li>No registration required</li>
-      <li>Fast and secure</li>
-      <li>Works on mobile and desktop</li>
-    </ul>
+        <div className={styles.stepItem}>
+          <span>1</span>
+          <p>Open Instagram and copy the Reel URL.</p>
+        </div>
 
-    <h2>Frequently Asked Questions</h2>
+        <div className={styles.stepItem}>
+          <span>2</span>
+          <p>Paste the link into DownloadShorts.</p>
+        </div>
 
-    <h3>Is DownloadShorts free?</h3>
-    <p>Yes, DownloadShorts is completely free to use.</p>
+        <div className={styles.stepItem}>
+          <span>3</span>
+          <p>Click Download and save the Reel instantly.</p>
+        </div>
+      </div>
 
-    <h3>Can I download Instagram Reel audio?</h3>
-    <p>Yes, you can download Instagram Reel videos and audio.</p>
+      <div className={styles.seoCard}>
+        <h3>Why Choose DownloadShorts?</h3>
 
-    <h3>Do I need to log in?</h3>
-    <p>No. No account or registration is required.</p>
+        <ul className={styles.featureList}>
+          <li>✓ Download Instagram Reels without watermark</li>
+          <li>✓ HD quality downloads</li>
+          <li>✓ Fast and secure processing</li>
+          <li>✓ No account required</li>
+          <li>✓ Mobile and desktop support</li>
+          <li>✓ Completely free to use</li>
+        </ul>
+      </div>
+
+    </div>
+
+    <div className={styles.faqSection}>
+      <h2>Frequently Asked Questions</h2>
+
+      <div className={styles.faqItem}>
+        <h3>Is DownloadShorts free?</h3>
+        <p>
+          Yes. DownloadShorts is completely free and does not require
+          any subscription.
+        </p>
+      </div>
+
+      <div className={styles.faqItem}>
+        <h3>Can I download Instagram Reel audio?</h3>
+        <p>
+          Yes. You can download Instagram Reel videos and audio in
+          high quality.
+        </p>
+      </div>
+
+      <div className={styles.faqItem}>
+        <h3>Do I need to log in?</h3>
+        <p>
+          No. DownloadShorts works without creating an account.
+        </p>
+      </div>
+
+      <div className={styles.faqItem}>
+        <h3>Can I use it on mobile?</h3>
+        <p>
+          Yes. DownloadShorts works on Android, iPhone, tablets and
+          desktop browsers.
+        </p>
+      </div>
+
+    </div>
 
   </div>
 </section>
