@@ -60,10 +60,23 @@ const thumbnailSrc = getThumbnailSrc(platform, thumbnail);
 
           {/* Info + actions */}
           <div className={styles.info}>
+         <div style={{ display: "flex", justifyContent: "flex-end" }}>
+  <button
+    className={styles.closePageBtn}
+    onClick={onReset}
+    type="button"
+    aria-label="Go Home"
+  >
+    <span className="material-symbols-outlined">
+      close
+    </span>
+  </button>
+</div>
+   
             {uploader && <p className={styles.uploader}>{uploader}</p>}
             <h1 className={styles.title}>{title}</h1>
 {/* Caption */}
-{caption && (
+{/* {caption && (
   <div className={styles.captionCard}>
     <h3>
       <span className="material-symbols-outlined">
@@ -74,7 +87,7 @@ const thumbnailSrc = getThumbnailSrc(platform, thumbnail);
 
     <p>{caption.replace(/#\w+/g, "").trim()}</p>
   </div>
-)}
+)} */}
 
 {/* Hashtags */}
 {hashtags?.length > 0 && (
