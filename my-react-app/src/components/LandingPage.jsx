@@ -22,7 +22,7 @@ const handlePaste = async () => {
     setError('');
 
     if (!detectPlatform(trimmed)) {
-      setError('Only YouTube, TikTok, and Instagram Reels URLs are supported.');
+      setError('Only Instagram Reels URLs are supported.');
       return;
     }
 
@@ -39,7 +39,7 @@ const handlePaste = async () => {
     const trimmed = url.trim();
     if (!trimmed) { setError('Please paste a video URL first.'); return; }
     if (!detectPlatform(trimmed)) {
-      setError('Only YouTube, TikTok, and Instagram Reels URLs are supported.');
+      setError('Only Instagram Reels URLs are supported.');
       return;
     }
     setError('');
@@ -110,7 +110,7 @@ const handlePaste = async () => {
           </form>
 
           {/* Platform pills */}
-          <div className={styles.platforms}>
+          {/* <div className={styles.platforms}>
             {[
               { id: 'youtube',   icon: 'play_circle',   label: 'YouTube',   color: '#ff0000' },
               { id: 'tiktok',    icon: 'music_note',    label: 'TikTok',    color: '#000000' },
@@ -121,7 +121,7 @@ const handlePaste = async () => {
                 <span>{p.label}</span>
               </div>
             ))}
-          </div>
+          </div> */}
         </div>
       </section>
 
