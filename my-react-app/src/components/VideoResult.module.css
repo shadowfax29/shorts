@@ -252,6 +252,56 @@
   color: var(--on-surface);
 }
 
+.captionCard,
+.hashtagCard {
+  margin-top: 20px;
+  padding: 20px;
+  border-radius: 18px;
+  background: var(--surface, #fff);
+  border: 1px solid rgba(0,0,0,.08);
+}
+
+.captionCard h3,
+.hashtagCard h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.captionCard p {
+  margin: 0;
+  line-height: 1.8;
+  color: #666;
+  white-space: pre-wrap;
+}
+
+.hashtagWrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.hashtag {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(225,48,108,.1);
+  color: #e1306c;
+  font-weight: 600;
+  font-size: .9rem;
+  transition: .2s;
+    border: none;
+  cursor: pointer;
+}
+
+.hashtag:hover {
+  transform: translateY(-2px);
+  background: rgba(225,48,108,.15);
+}
+
+
 /* Responsive */
 @media (max-width: 768px) {
   .section { padding: 2rem var(--margin-mobile); align-items: stretch; }
