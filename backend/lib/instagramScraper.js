@@ -74,6 +74,7 @@ export async function scrapeInstagramReel(url, fetchFn = globalThis.fetch) {
   const videoUrl = extractVideoVersionsUrl(html)
     || parseMeta(html, 'og:video:secure_url')
     || parseMeta(html, 'og:video');
+  const caption = extractCaption(html);
 
   if (!videoUrl) throw new Error('Video unavailable or not found. The reel may be private.');
 
