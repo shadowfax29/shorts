@@ -26,9 +26,7 @@ const handlePaste = async () => {
       return;
     }
 
-    setTimeout(() => {
       onSubmit(trimmed);
-    }, 2000); // 2 seconds
   } catch {
     inputRef.current?.focus();
   }
@@ -84,25 +82,32 @@ const handlePaste = async () => {
           <form className={styles.inputForm} onSubmit={handleSubmit} noValidate>
             <div className={`${styles.inputWrap} ${focused ? styles.inputFocused : ''}`}>
               <span className={`material-symbols-outlined ${styles.inputIcon}`}>link</span>
-           <input
+<input
   ref={inputRef}
   className={styles.input}
   type="url"
   value={url}
-  onChange={(e) => {
-    setUrl(e.target.value);
-    setError('');
-  }}
-  onPaste={(e) => {
-    setTimeout(() => {
-      const pastedText = e.target.value.trim();
+  placeholder="Paste your Instagram Reel URL here..."
 
-      if (detectPlatform(pastedText)) {
-        onSubmit(pastedText);
+  onChange={(e) => {
+    const value = e.target.value;
+    setUrl(value);
+    setError("");
+
+    if (detectPlatform(value.trim())) {
+      onSubmit(value.trim());
+    }
+  }}
+
+  onPaste={(e) => {
+    const pasted = e.clipboardData.getData("text").trim();
+
+    setTimeout(() => {
+      if (detectPlatform(pasted)) {
+        onSubmit(pasted);
       }
     }, 0);
   }}
-placeholder="Paste your Instagram Reel URL here..."
 />
               {url ? (
                 <button type="button" className={styles.clearBtn} onClick={() => { setUrl(''); setError(''); }} aria-label="Clear">
