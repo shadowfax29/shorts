@@ -250,8 +250,8 @@ app.get('/api/info', async (req, res) => {
   try {
     // Instagram: scrape page directly — no yt-dlp, no cookies needed for public reels
     if (platform === 'instagram') {
-      const { videoUrl, title, thumbnail } = await scrapeInstagramReel(url);
-      return res.json({ platform, title, thumbnail, duration: null, uploader: null, qualities: [], videoUrl });
+      const { videoUrl, title, thumbnail,caption,hashtags } = await scrapeInstagramReel(url);
+      return res.json({ platform, title, thumbnail, duration: null, uploader: null, qualities: [], videoUrl,caption,hashtags });
     }
 
     const raw  = await ytDlpJson([ url, '--dump-json', '--no-playlist', '--no-warnings' ], platform);
