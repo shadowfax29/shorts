@@ -21,6 +21,37 @@ export default function App() {
   const [errorMsg, setErrorMsg] = useState('');
   const [toast, setToast]       = useState(null);   // { type, message }
   const [downloading, setDownloading] = useState(false);
+const [extractingAudio, setExtractingAudio] = useState(false);
+
+const handleExtractAudio = useCallback(async () => {
+  if (!videoInfo?.videoUrl) return;
+
+  setExtractingAudio(true);
+
+  try {
+    const res = await fetch(
+      `${API}/api/audio?videoUrl=${encodeURIComponent(videoInfo.videoUrl)}`
+    );
+
+    if (!res.ok) {
+      throw new Error("Audio extraction failed");
+    }
+
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = slugify(videoInfo.title) + ".mp3";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    URL.revokeObjectURL(objectUrl);
+  } finally {
+    setExtractingAudio(false);
+  }
+}, [videoInfo]);
 
   const showToast = useCallback((type, message) => {
     setToast({ type, message });
@@ -112,13 +143,15 @@ export default function App() {
                 <LoadingScreen />
               )}
               {phase === 'result' && videoInfo && (
-                <VideoResult
-                  info={videoInfo}
-                  url={url}
-                  onDownload={handleDownload}
-                  onReset={handleReset}
-                  downloading={downloading}
-                />
+            <VideoResult
+  info={videoInfo}
+  url={url}
+  onDownload={handleDownload}
+  onExtractAudio={handleExtractAudio}
+  onReset={handleReset}
+  downloading={downloading}
+  extractingAudio={extractingAudio}
+/>
               )}
               {phase === 'error' && (
                 <ErrorScreen message={errorMsg} onReset={handleReset} />

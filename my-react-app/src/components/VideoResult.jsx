@@ -25,11 +25,19 @@ function formatBytes(bytes) {
 
 
 
-export default function VideoResult({ info, url, onDownload, onReset, downloading }) {
-  const { platform, title, thumbnail, duration, uploader, qualities,caption,hashtags } = info;
+export default function VideoResult({
+  info,
+  url,
+  onDownload,
+  onExtractAudio,
+  onReset,
+  downloading,
+  extractingAudio
+}) {  const { platform, title, thumbnail, duration, uploader, qualities,caption,hashtags } = info;
   const isYouTube = platform === 'youtube';
   const [selected, setSelected] = useState(qualities?.[0]?.formatId ?? null);
   const selectedQ    = qualities?.find(q => q.formatId === selected);
+
 const thumbnailSrc = getThumbnailSrc(platform, thumbnail);
   return (
     <section className={`${styles.section} fade-in-up`}>
@@ -183,8 +191,32 @@ const thumbnailSrc = getThumbnailSrc(platform, thumbnail);
                   <span className="material-symbols-outlined">download</span>
                   Download{isYouTube && selectedQ ? ` (${selectedQ.label})` : ' Video'}
                 </>
+                
               )}
             </button>
+            <button
+  className={styles.downloadBtn}
+  onClick={() => onExtractAudio()}
+  disabled={extractingAudio}
+  type="button"
+  style={{ marginTop: "12px" }}
+>
+  {extractingAudio ? (
+    <>
+      <span className="material-symbols-outlined spin">
+        sync
+      </span>
+      Extracting Audio...
+    </>
+  ) : (
+    <>
+      <span className="material-symbols-outlined">
+        music_note
+      </span>
+      Extract Audio (MP3)
+    </>
+  )}
+</button>
 
             <button className={styles.resetBtn} onClick={onReset} type="button">
               <span className="material-symbols-outlined">add_circle</span>

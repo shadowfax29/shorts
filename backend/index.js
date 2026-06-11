@@ -11,7 +11,13 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { friendlyError, cookieArgs, COOKIE_FILES } from './lib/helpers.js';
 import { scrapeInstagramReel } from './lib/instagramScraper.js';
+import ffmpeg from "fluent-ffmpeg";
+import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
+import fs from "fs";
+import os from "os";
+import path from "path";
 
+ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app  = express();
 const PORT = process.env.PORT || 3001;
@@ -27,6 +33,8 @@ const COOKIE_ENV_MAP = {
   INSTAGRAM_COOKIES_B64: COOKIE_FILES.instagram,
   TIKTOK_COOKIES_B64:    COOKIE_FILES.tiktok,
 };
+
+
 
 for (const [envKey, filename] of Object.entries(COOKIE_ENV_MAP)) {
   if (process.env[envKey]) {
@@ -298,6 +306,36 @@ app.get('/api/info', async (req, res) => {
     if (process.env.NODE_ENV !== 'production') body.detail = err.message;
     res.status(status).json(body);
   }
+});
+
+
+app.get("/api/audio", async (req, res) => {
+  const { videoUrl } = req.query;
+
+  if (!videoUrl) {
+    return res.status(400).json({
+      error: "videoUrl is required"
+    });
+  }
+
+  const output = join(os.tmpdir(), `${Date.now()}.mp3`);
+
+  ffmpeg(videoUrl)
+    .noVideo()
+    .audioCodec("libmp3lame")
+    .format("mp3")
+    .save(output)
+    .on("end", () => {
+      res.download(output, "audio.mp3", () => {
+        fs.unlinkSync(output);
+      });
+    })
+    .on("error", (err) => {
+      console.error(err);
+      res.status(500).json({
+        error: "Audio extraction failed"
+      });
+    });
 });
 
 // ──────────────────────────────────────────────
