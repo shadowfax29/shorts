@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import styles from './LandingPage.module.css';
 import { detectPlatform } from '../utils/platform.js';
 import PlatformBadge from './PlatformBadge.jsx';
-
+import { Helmet } from "react-helmet-async";
 export default function LandingPage({ onSubmit }) {
   const [url, setUrl]       = useState('');
   const [focused, setFocused] = useState(false);
@@ -48,6 +48,21 @@ const handlePaste = async () => {
 
   return (
     <>
+      <Helmet>
+    <title>
+      DownloadShorts - Instagram Reels Downloader
+    </title>
+
+    <meta
+      name="description"
+      content="Download Instagram Reels without watermark. Save Instagram Reel videos and audio in HD quality for free."
+    />
+
+    <link
+      rel="canonical"
+      href="https://downloadshorts.com/"
+    />
+  </Helmet>
       {/* ── Hero ── */}
       <section className={styles.hero}>
         {/* background blobs */}
@@ -55,9 +70,15 @@ const handlePaste = async () => {
         <div className={styles.blobBtm}  aria-hidden="true" />
 
         <div className={styles.heroContent}>
-          <h1 className={styles.heroTitle}>
-            Download videos from your favorite platforms.
-          </h1>
+         <h1 className={styles.heroTitle}>
+  Instagram Reels Downloader
+</h1>
+
+<p className={styles.heroSubtitle}>
+  Download Instagram Reels without watermark and save
+  Instagram Reel videos in HD quality for free.
+  No login required.
+</p>
 
           {/* URL Input */}
           <form className={styles.inputForm} onSubmit={handleSubmit} noValidate>
@@ -81,7 +102,7 @@ const handlePaste = async () => {
       }
     }, 0);
   }}
-  placeholder="Paste your video link here…"
+placeholder="Paste your Instagram Reel URL here..."
 />
               {url ? (
                 <button type="button" className={styles.clearBtn} onClick={() => { setUrl(''); setError(''); }} aria-label="Clear">
@@ -130,13 +151,15 @@ const handlePaste = async () => {
         <div className={styles.sectionInner}>
           <div className={styles.sectionHeader}>
             <h2>How it works</h2>
-            <p>Three simple steps to grab your favorite content in high quality.</p>
+<p>
+Three simple steps to download Instagram Reels in HD quality.
+</p>
           </div>
           <div className={styles.stepsGrid}>
             {[
               { icon: 'content_copy',  color: 'var(--primary-fixed)',    textColor: 'var(--on-primary-fixed)',              title: 'Copy URL',        desc: 'Find the video you want and copy its URL from the browser or app share menu.' },
-              { icon: 'content_paste', color: 'var(--secondary-fixed)',  textColor: 'var(--on-secondary-fixed-variant)',    title: 'Paste & Select',  desc: 'Paste the link into DownloadShorts. For YouTube, choose your preferred resolution.' },
-              { icon: 'download_done', color: 'var(--tertiary-fixed)',   textColor: 'var(--on-tertiary-fixed-variant)',     title: 'Enjoy Offline',   desc: 'Hit Download and your video saves directly to your device in seconds.' },
+              { icon: 'content_paste', color: 'var(--secondary-fixed)',  textColor: 'var(--on-secondary-fixed-variant)',    title: 'Paste Reel URL',  desc: 'Paste the link into DownloadShorts. Paste your Instagram Reel URL and prepare for download.' },
+              { icon: 'download_done', color: 'var(--tertiary-fixed)',   textColor: 'var(--on-tertiary-fixed-variant)',     title: 'Download Reel',   desc: 'Hit Download and your video saves directly to your device in seconds.' },
             ].map((step) => (
               <div key={step.title} className={styles.stepCard}>
                 <div className={styles.stepIcon} style={{ background: step.color, color: step.textColor }}>
@@ -156,7 +179,7 @@ const handlePaste = async () => {
           <div className={styles.bentoGrid}>
             <div className={`${styles.bentoCard} ${styles.bentoFeatured}`}>
               <h3>Crystal Clear Quality</h3>
-              <p>We support up to 4K resolution for supported platforms. Never compromise on visual fidelity.</p>
+              <p>Download Instagram Reels in high quality without watermark. Never compromise on visual fidelity.</p>
               <div className={styles.bentoBadges}>
                 <span>4K UHD</span><span>1080p</span><span>MP4</span><span>MP3</span>
               </div>
@@ -181,6 +204,52 @@ const handlePaste = async () => {
           </div>
         </div>
       </section>
+
+      {/* seo section */}
+      {/* SEO Content */}
+<section className={styles.seoSection}>
+  <div className={styles.sectionInner}>
+
+    <h2>Download Instagram Reels Without Watermark</h2>
+
+    <p>
+      DownloadShorts is a free Instagram Reels downloader
+      that lets you save Instagram Reel videos and audio
+      in HD quality. Simply paste your Instagram Reel URL
+      and download instantly.
+    </p>
+
+    <h2>How to Download Instagram Reels</h2>
+
+    <ol>
+      <li>Open Instagram and copy the Reel link.</li>
+      <li>Paste the URL into DownloadShorts.</li>
+      <li>Click Download and save your Reel.</li>
+    </ol>
+
+    <h2>Why Use DownloadShorts?</h2>
+
+    <ul>
+      <li>Download Instagram Reels without watermark</li>
+      <li>High quality HD downloads</li>
+      <li>No registration required</li>
+      <li>Fast and secure</li>
+      <li>Works on mobile and desktop</li>
+    </ul>
+
+    <h2>Frequently Asked Questions</h2>
+
+    <h3>Is DownloadShorts free?</h3>
+    <p>Yes, DownloadShorts is completely free to use.</p>
+
+    <h3>Can I download Instagram Reel audio?</h3>
+    <p>Yes, you can download Instagram Reel videos and audio.</p>
+
+    <h3>Do I need to log in?</h3>
+    <p>No. No account or registration is required.</p>
+
+  </div>
+</section>
     </>
   );
 }

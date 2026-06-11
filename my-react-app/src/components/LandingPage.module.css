@@ -329,7 +329,31 @@
 }
 .bentoSmall strong { font-size: 13px; font-weight: 600; color: var(--on-surface); }
 .bentoSmall small  { font-size: 12px; color: var(--on-surface-variant); }
+.seoSection {
+  padding: 80px 20px;
+}
 
+.seoSection h2 {
+  margin-top: 40px;
+  margin-bottom: 16px;
+  font-size: 2rem;
+}
+
+.seoSection h3 {
+  margin-top: 20px;
+  margin-bottom: 8px;
+}
+
+.seoSection p,
+.seoSection li {
+  line-height: 1.8;
+  color: #666;
+}
+
+.seoSection ol,
+.seoSection ul {
+  padding-left: 20px;
+}
 /* ── Responsive ── */
 @media (max-width: 900px) {
   .stepsGrid { grid-template-columns: 1fr; }
@@ -348,3 +372,4 @@
   .downloadBtn { width: 100%; justify-content: center; border-radius: var(--radius-md); }
   .input { padding: 10px 8px; }
 }
+
