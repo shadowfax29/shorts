@@ -45,6 +45,26 @@ function extractTitle(html) {
   if (titleMatch) return titleMatch[1];
   return parseMeta(html, 'og:title') || 'Instagram Reel';
 }
+// Add these to instagramScraper.js
+
+function extractCaption(html) {
+  // Method 1: edge_media_to_caption (embedded JSON)
+  const captionMatch = html.match(/"edge_media_to_caption":\{"edges":\[\{"node":\{"text":"((?:[^"\\]|\\.)*)"/);
+  if (captionMatch) return captionMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+
+  // Method 2: "caption" field in video JSON
+  const altMatch = html.match(/"caption"\s*:\s*\{"pk"[^}]*"text"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+  if (altMatch) return altMatch[1].replace(/\\n/g, '\n');
+
+  // Method 3: og:description fallback
+  return parseMeta(html, 'og:description') || null;
+}
+
+function extractHashtags(caption) {
+  if (!caption) return [];
+  const matches = caption.match(/#[\w\u0080-\uFFFF]+/g);
+  return matches ? [...new Set(matches)] : [];   // deduplicated
+}
 
 export async function scrapeInstagramReel(url, fetchFn = globalThis.fetch) {
   const res = await fetchFn(url, { headers: HEADERS });
@@ -61,5 +81,7 @@ export async function scrapeInstagramReel(url, fetchFn = globalThis.fetch) {
     videoUrl,
     title: extractTitle(html),
     thumbnail: extractThumbnail(html),
+     caption,                          // full caption text
+    hashtags:  extractHashtags(caption),  // ["#music", "#concert", ...]
   };
 }
