@@ -138,7 +138,7 @@ const thumbnailSrc = getThumbnailSrc(platform, thumbnail);
 
             <button className={styles.resetBtn} onClick={onReset} type="button">
               <span className="material-symbols-outlined">add_circle</span>
-              Download another video
+              Go Back & Download another video
             </button>
 
             {/* Feature pills */}
