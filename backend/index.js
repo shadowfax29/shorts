@@ -17,7 +17,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+ffmpeg.setFfmpegPath(FFMPEG_BIN);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app  = express();
 const PORT = process.env.PORT || 3001;
@@ -316,7 +316,10 @@ if (platform === 'instagram') {
 
 app.get("/api/audio", async (req, res) => {
   const { videoUrl } = req.query;
-
+console.log("========== AUDIO DEBUG ==========");
+console.log("Video URL:", videoUrl);
+console.log("FFmpeg binary:", FFMPEG_BIN);
+console.log("OS tmp dir:", os.tmpdir());
   if (!videoUrl) {
     return res.status(400).json({
       error: "videoUrl is required"
@@ -326,10 +329,15 @@ app.get("/api/audio", async (req, res) => {
   const output = join(os.tmpdir(), `${Date.now()}.mp3`);
 
   ffmpeg(videoUrl)
-    .noVideo()
-    .audioCodec("libmp3lame")
-    .format("mp3")
-    .save(output)
+      .noVideo()
+  .audioCodec("libmp3lame")
+  .format("mp3")
+  .on("start", cmd => {
+    console.log("FFmpeg Command:", cmd);
+  })
+  .on("stderr", line => {
+    console.log("FFmpeg:", line);
+  })
     .on("end", () => {
       res.download(output, "audio.mp3", () => {
         fs.unlinkSync(output);
