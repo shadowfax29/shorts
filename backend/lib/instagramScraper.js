@@ -60,6 +60,23 @@ function extractCaption(html) {
   return parseMeta(html, 'og:description') || null;
 }
 
+function extractAudioUrl(html) {
+  // Method 1: audio field in video JSON (separate audio track)
+  const idx = html.indexOf('"audio"');
+  if (idx !== -1) {
+    const chunk = html.slice(idx, idx + 1000);
+    const urlMatch = chunk.match(/"url"\s*:\s*"(https:\\?\/\\?\/[^"]+)"/);
+    if (urlMatch) return urlMatch[1].replace(/\\\//g, '/').replace(/\\u0026/g, '&');
+  }
+
+  // Method 2: audio_codec present → extract from video_versions audio stream url
+  const audioMatch = html.match(/"audio_codec"\s*:\s*"[^"]+".{0,500}"url"\s*:\s*"(https:\\?\/\\?\/[^"]+)"/s);
+  if (audioMatch) return audioMatch[1].replace(/\\\//g, '/').replace(/\\u0026/g, '&');
+
+  // Method 3: og:audio meta tag (rare but exists on some posts)
+  return parseMeta(html, 'og:audio') || null;
+}
+
 function extractHashtags(caption) {
   if (!caption) return [];
   const matches = caption.match(/#[\w\u0080-\uFFFF]+/g);
@@ -70,7 +87,6 @@ export async function scrapeInstagramReel(url, fetchFn = globalThis.fetch) {
   const res = await fetchFn(url, { headers: HEADERS });
   const html = await res.text();
 
-  // Try video_versions (embedded JSON) first, fall back to og:video
   const videoUrl = extractVideoVersionsUrl(html)
     || parseMeta(html, 'og:video:secure_url')
     || parseMeta(html, 'og:video');
@@ -80,9 +96,10 @@ export async function scrapeInstagramReel(url, fetchFn = globalThis.fetch) {
 
   return {
     videoUrl,
-    title: extractTitle(html),
+    audioUrl:  extractAudioUrl(html),   // null if not found / already muxed
+    title:     extractTitle(html),
     thumbnail: extractThumbnail(html),
-     caption,                          // full caption text
-    hashtags:  extractHashtags(caption),  // ["#music", "#concert", ...]
+    caption,
+    hashtags:  extractHashtags(caption),
   };
 }
