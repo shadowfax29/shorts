@@ -17,7 +17,6 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
-ffmpeg.setFfmpegPath(FFMPEG_BIN);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app  = express();
 const PORT = process.env.PORT || 3001;
@@ -89,6 +88,7 @@ const FFMPEG_BIN =
     : "/usr/bin/ffmpeg";
 console.log(`yt-dlp  → ${YTDLP_BIN}`);
 console.log(`ffmpeg  → ${FFMPEG_BIN}`);
+ffmpeg.setFfmpegPath(FFMPEG_BIN);
 
 app.use(cors({
   origin: (origin, cb) => {
@@ -329,7 +329,7 @@ console.log("OS tmp dir:", os.tmpdir());
   const output = join(os.tmpdir(), `${Date.now()}.mp3`);
 
   ffmpeg(videoUrl)
-      .noVideo()
+  .noVideo()
   .audioCodec("libmp3lame")
   .format("mp3")
   .on("start", cmd => {
@@ -338,17 +338,21 @@ console.log("OS tmp dir:", os.tmpdir());
   .on("stderr", line => {
     console.log("FFmpeg:", line);
   })
-    .on("end", () => {
-      res.download(output, "audio.mp3", () => {
+  .on("end", () => {
+    res.download(output, "audio.mp3", () => {
+      if (fs.existsSync(output)) {
         fs.unlinkSync(output);
-      });
-    })
-    .on("error", (err) => {
-      console.error(err);
-      res.status(500).json({
-        error: "Audio extraction failed"
-      });
+      }
     });
+  })
+  .on("error", (err) => {
+    console.error(err);
+    res.status(500).json({
+      error: "Audio extraction failed"
+    });
+  })
+  .save(output);   // <-- ADD HERE
+      
 });
 
 // ──────────────────────────────────────────────
