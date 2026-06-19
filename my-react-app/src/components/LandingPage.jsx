@@ -3,7 +3,6 @@ import { Helmet } from 'react-helmet-async';
 import styles from './LandingPage.module.css';
 import { detectPlatform } from '../utils/platform.js';
 import PlatformBadge from './PlatformBadge.jsx';
-import { Helmet } from "react-helmet-async";
 export default function LandingPage({ onSubmit }) {
   const [url, setUrl]       = useState('');
   const [focused, setFocused] = useState(false);
