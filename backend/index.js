@@ -11,6 +11,11 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { friendlyError, cookieArgs, COOKIE_FILES } from './lib/helpers.js';
 import { scrapeInstagramReel } from './lib/instagramScraper.js';
+import ffmpeg from "fluent-ffmpeg";
+import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
+import fs from "fs";
+import os from "os";
+import path from "path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app  = express();
@@ -27,6 +32,8 @@ const COOKIE_ENV_MAP = {
   INSTAGRAM_COOKIES_B64: COOKIE_FILES.instagram,
   TIKTOK_COOKIES_B64:    COOKIE_FILES.tiktok,
 };
+
+
 
 for (const [envKey, filename] of Object.entries(COOKIE_ENV_MAP)) {
   if (process.env[envKey]) {
@@ -81,6 +88,7 @@ const FFMPEG_BIN =
     : "/usr/bin/ffmpeg";
 console.log(`yt-dlp  → ${YTDLP_BIN}`);
 console.log(`ffmpeg  → ${FFMPEG_BIN}`);
+ffmpeg.setFfmpegPath(FFMPEG_BIN);
 
 app.use(cors({
   origin: (origin, cb) => {
@@ -249,10 +257,15 @@ app.get('/api/info', async (req, res) => {
 
   try {
     // Instagram: scrape page directly — no yt-dlp, no cookies needed for public reels
-    if (platform === 'instagram') {
-      const { videoUrl, title, thumbnail,caption,hashtags } = await scrapeInstagramReel(url);
-      return res.json({ platform, title, thumbnail, duration: null, uploader: null, qualities: [], videoUrl,caption,hashtags });
-    }
+if (platform === 'instagram') {
+  const { videoUrl, audioUrl, title, thumbnail, caption, hashtags } =
+    await scrapeInstagramReel(url);
+  return res.json({
+    platform, title, thumbnail,
+    duration: null, uploader: null, qualities: [],
+    videoUrl, audioUrl, caption, hashtags,
+  });
+}
 
     const raw  = await ytDlpJson([ url, '--dump-json', '--no-playlist', '--no-warnings' ], platform);
     const meta = JSON.parse(raw);
@@ -298,6 +311,48 @@ app.get('/api/info', async (req, res) => {
     if (process.env.NODE_ENV !== 'production') body.detail = err.message;
     res.status(status).json(body);
   }
+});
+
+
+app.get("/api/audio", async (req, res) => {
+  const { videoUrl } = req.query;
+console.log("========== AUDIO DEBUG ==========");
+console.log("Video URL:", videoUrl);
+console.log("FFmpeg binary:", FFMPEG_BIN);
+console.log("OS tmp dir:", os.tmpdir());
+  if (!videoUrl) {
+    return res.status(400).json({
+      error: "videoUrl is required"
+    });
+  }
+
+  const output = join(os.tmpdir(), `${Date.now()}.mp3`);
+
+  ffmpeg(videoUrl)
+  .noVideo()
+  .audioCodec("libmp3lame")
+  .format("mp3")
+  .on("start", cmd => {
+    console.log("FFmpeg Command:", cmd);
+  })
+  .on("stderr", line => {
+    console.log("FFmpeg:", line);
+  })
+  .on("end", () => {
+    res.download(output, "audio.mp3", () => {
+      if (fs.existsSync(output)) {
+        fs.unlinkSync(output);
+      }
+    });
+  })
+  .on("error", (err) => {
+    console.error(err);
+    res.status(500).json({
+      error: "Audio extraction failed"
+    });
+  })
+  .save(output);   // <-- ADD HERE
+      
 });
 
 // ──────────────────────────────────────────────

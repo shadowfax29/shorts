@@ -8,7 +8,9 @@
     "test": "node --test lib/helpers.test.js lib/instagramScraper.test.js"
   },
   "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "cors": "2.8.5",
-    "express": "4.19.2"
+    "express": "4.19.2",
+    "fluent-ffmpeg": "^2.1.3"
   }
 }
