@@ -1,8 +1,21 @@
+import { Helmet } from 'react-helmet-async';
 import styles from './PrivacyPolicy.module.css';
 
 export default function PrivacyPolicy() {
   return (
     <main className={styles.page}>
+      <Helmet>
+        <title>Privacy Policy - DownloadShorts</title>
+        <meta name="description" content="Read the DownloadShorts Privacy Policy. Learn how we collect, use, and protect your information when you use our free Instagram Reels downloader." />
+        <link rel="canonical" href="https://downloadshorts.com/privacy-policy" />
+        <meta property="og:title" content="Privacy Policy - DownloadShorts" />
+        <meta property="og:description" content="Read the DownloadShorts Privacy Policy. Learn how we collect, use, and protect your information." />
+        <meta property="og:url" content="https://downloadshorts.com/privacy-policy" />
+        <meta property="og:image" content="https://downloadshorts.com/logo.png" />
+        <meta name="twitter:title" content="Privacy Policy - DownloadShorts" />
+        <meta name="twitter:description" content="Read the DownloadShorts Privacy Policy." />
+        <meta name="twitter:image" content="https://downloadshorts.com/logo.png" />
+      </Helmet>
       <div className={styles.container}>
         <h1>Privacy Policy</h1>
         <p className={styles.meta}>Effective date: January 1, 2026</p>

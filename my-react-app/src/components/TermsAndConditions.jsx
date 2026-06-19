@@ -1,8 +1,21 @@
+import { Helmet } from 'react-helmet-async';
 import styles from './PrivacyPolicy.module.css';
 
 export default function TermsAndConditions() {
   return (
     <main className={styles.page}>
+      <Helmet>
+        <title>Terms and Conditions - DownloadShorts</title>
+        <meta name="description" content="Read the DownloadShorts Terms and Conditions. Understand the rules and regulations for using our free Instagram Reels downloader service." />
+        <link rel="canonical" href="https://downloadshorts.com/terms-and-conditions" />
+        <meta property="og:title" content="Terms and Conditions - DownloadShorts" />
+        <meta property="og:description" content="Read the DownloadShorts Terms and Conditions for using our free Instagram Reels downloader." />
+        <meta property="og:url" content="https://downloadshorts.com/terms-and-conditions" />
+        <meta property="og:image" content="https://downloadshorts.com/logo.png" />
+        <meta name="twitter:title" content="Terms and Conditions - DownloadShorts" />
+        <meta name="twitter:description" content="Read the DownloadShorts Terms and Conditions." />
+        <meta name="twitter:image" content="https://downloadshorts.com/logo.png" />
+      </Helmet>
       <div className={styles.container}>
         <h1>Terms and Conditions</h1>
         <p className={styles.meta}>Effective date: January 1, 2026</p>

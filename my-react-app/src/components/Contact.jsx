@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Helmet } from 'react-helmet-async';
 import styles from './Contact.module.css';
 
 const CONTACT_EMAIL = 'contact@downloadshorts.com';
@@ -27,6 +28,18 @@ export default function Contact() {
 
   return (
     <main className={styles.page}>
+      <Helmet>
+        <title>Contact Us - DownloadShorts</title>
+        <meta name="description" content="Contact DownloadShorts for support, questions, or to report an issue with our Instagram Reels downloader. We respond to all inquiries." />
+        <link rel="canonical" href="https://downloadshorts.com/contact" />
+        <meta property="og:title" content="Contact Us - DownloadShorts" />
+        <meta property="og:description" content="Contact DownloadShorts for support or to report an issue with our Instagram Reels downloader." />
+        <meta property="og:url" content="https://downloadshorts.com/contact" />
+        <meta property="og:image" content="https://downloadshorts.com/logo.png" />
+        <meta name="twitter:title" content="Contact Us - DownloadShorts" />
+        <meta name="twitter:description" content="Contact DownloadShorts for support or to report an issue." />
+        <meta name="twitter:image" content="https://downloadshorts.com/logo.png" />
+      </Helmet>
       <div className={styles.hero}>
         <h1>Contact <span>Us</span></h1>
         <p>Have a problem or suggestion? Let us know.</p>

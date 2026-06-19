@@ -2,8 +2,14 @@ import { useState } from 'react';
 import styles from './VideoResult.module.css';
 import PlatformBadge from './PlatformBadge.jsx';
 
-function getThumbnailSrc(platform, thumbnail) {
-  return thumbnail || null;
+function getThumbnailSrc(platform, thumbnail, videoUrl) {
+  if (!thumbnail) return null;
+  // Instagram CDN tokens expire and are session-locked.
+  // Pass the original video page URL so the backend can re-fetch a fresh thumbnail.
+  if (platform === 'instagram' && videoUrl) {
+    return `/api/thumbnail?videoUrl=${encodeURIComponent(videoUrl)}`;
+  }
+  return thumbnail;
 }
 
 function formatDuration(secs) {
@@ -23,14 +29,14 @@ function formatBytes(bytes) {
   return `${(bytes / 1e3).toFixed(0)} KB`;
 }
 
-
-
 export default function VideoResult({ info, url, onDownload, onReset, downloading }) {
-  const { platform, title, thumbnail, duration, uploader, qualities,caption,hashtags } = info;
+  const { platform, title, thumbnail, duration, uploader, qualities } = info;
   const isYouTube = platform === 'youtube';
+
   const [selected, setSelected] = useState(qualities?.[0]?.formatId ?? null);
   const selectedQ    = qualities?.find(q => q.formatId === selected);
-const thumbnailSrc = getThumbnailSrc(platform, thumbnail);
+  const thumbnailSrc = getThumbnailSrc(platform, thumbnail, url);
+
   return (
     <section className={`${styles.section} fade-in-up`}>
       <div className={styles.container}>
@@ -62,44 +68,7 @@ const thumbnailSrc = getThumbnailSrc(platform, thumbnail);
           <div className={styles.info}>
             {uploader && <p className={styles.uploader}>{uploader}</p>}
             <h1 className={styles.title}>{title}</h1>
-{/* Caption */}
-{caption && (
-  <div className={styles.captionCard}>
-    <h3>
-      <span className="material-symbols-outlined">
-        article
-      </span>
-      Caption
-    </h3>
 
-    <p>{caption.replace(/#\w+/g, "").trim()}</p>
-  </div>
-)}
-
-{/* Hashtags */}
-{hashtags?.length > 0 && (
-  <div className={styles.hashtagCard}>
-    <h3>
-      <span className="material-symbols-outlined">
-        tag
-      </span>
-      Hashtags
-    </h3>
-
-  <div className={styles.hashtagWrap}>
-  {hashtags.map((tag) => (
-    <button
-      key={tag}
-      type="button"
-      className={styles.hashtag}
-      onClick={() => navigator.clipboard.writeText(tag)}
-    >
-      {tag}
-    </button>
-  ))}
-</div>
-  </div>
-)}
             {/* YouTube quality selector */}
             {isYouTube && qualities?.length > 0 && (
               <div className={styles.qualitySection}>
@@ -175,7 +144,7 @@ const thumbnailSrc = getThumbnailSrc(platform, thumbnail);
 
             <button className={styles.resetBtn} onClick={onReset} type="button">
               <span className="material-symbols-outlined">add_circle</span>
-              Go Back & Download another video
+              Download another video
             </button>
 
             {/* Feature pills */}

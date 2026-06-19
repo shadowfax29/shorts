@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { Helmet } from 'react-helmet-async';
 import styles from './LandingPage.module.css';
 import { detectPlatform } from '../utils/platform.js';
 import PlatformBadge from './PlatformBadge.jsx';
@@ -47,20 +48,17 @@ const handlePaste = async () => {
   return (
     <>
       <Helmet>
-    <title>
-      DownloadShorts - Instagram Reels Downloader
-    </title>
-
-    <meta
-      name="description"
-      content="Download Instagram Reels without watermark. Save Instagram Reel videos and audio in HD quality for free."
-    />
-
-    <link
-      rel="canonical"
-      href="https://downloadshorts.com/"
-    />
-  </Helmet>
+        <title>DownloadShorts - Free Instagram Reels Downloader | No Watermark</title>
+        <meta name="description" content="Download Instagram Reels for free in HD quality without watermark. No login required — paste the link and download instantly." />
+        <link rel="canonical" href="https://downloadshorts.com/" />
+        <meta property="og:title" content="DownloadShorts - Free Instagram Reels Downloader" />
+        <meta property="og:description" content="Download Instagram Reels without watermark in HD quality. Free, fast, no login required." />
+        <meta property="og:url" content="https://downloadshorts.com/" />
+        <meta property="og:image" content="https://downloadshorts.com/logo.png" />
+        <meta name="twitter:title" content="DownloadShorts - Free Instagram Reels Downloader" />
+        <meta name="twitter:description" content="Download Instagram Reels without watermark in HD quality. Free and fast." />
+        <meta name="twitter:image" content="https://downloadshorts.com/logo.png" />
+      </Helmet>
       {/* ── Hero ── */}
       <section className={styles.hero}>
         {/* background blobs */}
