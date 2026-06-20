@@ -3,6 +3,36 @@ import { Helmet } from 'react-helmet-async';
 import styles from './LandingPage.module.css';
 import { detectPlatform } from '../utils/platform.js';
 import PlatformBadge from './PlatformBadge.jsx';
+// FAQ data — single source of truth for both visible HTML and JSON-LD schema
+const FAQ_ITEMS = [
+  {
+    question: 'Is DownloadShorts free?',
+    answer: 'Yes. DownloadShorts is completely free and does not require any subscription.',
+  },
+  {
+    question: 'Can I download Instagram Reel audio?',
+    answer: 'Yes. You can download Instagram Reel videos and audio in high quality.',
+  },
+  {
+    question: 'Do I need to log in?',
+    answer: 'No. DownloadShorts works without creating an account.',
+  },
+  {
+    question: 'Can I use it on mobile?',
+    answer: 'Yes. DownloadShorts works on Android, iPhone, tablets and desktop browsers.',
+  },
+];
+
+const FAQ_SCHEMA = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: FAQ_ITEMS.map(({ question, answer }) => ({
+    '@type': 'Question',
+    name: question,
+    acceptedAnswer: { '@type': 'Answer', text: answer },
+  })),
+});
+
 export default function LandingPage({ onSubmit }) {
   const [url, setUrl]       = useState('');
   const [focused, setFocused] = useState(false);
@@ -57,6 +87,7 @@ const handlePaste = async () => {
         <meta name="twitter:title" content="DownloadShorts - Free Instagram Reels Downloader" />
         <meta name="twitter:description" content="Download Instagram Reels without watermark in HD quality. Free and fast." />
         <meta name="twitter:image" content="https://downloadshorts.com/logo.png" />
+        <script type="application/ld+json">{FAQ_SCHEMA}</script>
       </Helmet>
       {/* ── Hero ── */}
       <section className={styles.hero}>
@@ -266,38 +297,12 @@ Three simple steps to download Instagram Reels in HD quality.
 
     <div className={styles.faqSection}>
       <h2>Frequently Asked Questions</h2>
-
-      <div className={styles.faqItem}>
-        <h3>Is DownloadShorts free?</h3>
-        <p>
-          Yes. DownloadShorts is completely free and does not require
-          any subscription.
-        </p>
-      </div>
-
-      <div className={styles.faqItem}>
-        <h3>Can I download Instagram Reel audio?</h3>
-        <p>
-          Yes. You can download Instagram Reel videos and audio in
-          high quality.
-        </p>
-      </div>
-
-      <div className={styles.faqItem}>
-        <h3>Do I need to log in?</h3>
-        <p>
-          No. DownloadShorts works without creating an account.
-        </p>
-      </div>
-
-      <div className={styles.faqItem}>
-        <h3>Can I use it on mobile?</h3>
-        <p>
-          Yes. DownloadShorts works on Android, iPhone, tablets and
-          desktop browsers.
-        </p>
-      </div>
-
+      {FAQ_ITEMS.map(({ question, answer }) => (
+        <div key={question} className={styles.faqItem}>
+          <h3>{question}</h3>
+          <p>{answer}</p>
+        </div>
+      ))}
     </div>
 
   </div>
