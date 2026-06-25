@@ -140,8 +140,14 @@ function ytDlpJson(args, platform) {
 }
 
 /** Spawn yt-dlp and pipe stdout to res. Returns the child process. */
-function ytDlpStream(args, res, platform) {
+function ytDlpStream(args, res, platform, rawInfo = null) {
   const proc = spawn(YTDLP_BIN, [...args, ...GLOBAL_YTDLP_ARGS, ...cookieArgs(platform, COOKIES_DIR), '--ffmpeg-location', FFMPEG_BIN], { windowsHide: true });
+  
+  if (rawInfo) {
+    proc.stdin.write(rawInfo);
+    proc.stdin.end();
+  }
+
   proc.stdout.pipe(res);
   proc.stderr.on('data', d => process.stderr.write(d));
   proc.on('error', e => {
@@ -265,7 +271,9 @@ app.get('/api/info', async (req, res) => {
     const cached = infoCache.get(cacheKey);
     if (cached) {
       console.log(`[Cache HIT] /api/info for ${platform}: ${cacheKey}`);
-      return res.json(cached);
+      const clientResponse = { ...cached };
+      delete clientResponse.rawInfo;
+      return res.json(clientResponse);
     }
   }
   console.log(`[Cache MISS] /api/info for ${platform}: ${cacheKey}`);
@@ -325,9 +333,13 @@ app.get('/api/info', async (req, res) => {
       duration:  meta.duration  || null,
       uploader:  meta.uploader  || meta.channel || null,
       qualities,
+      rawInfo:   raw  // Keep the full raw JSON metadata in the cache
     };
     infoCache.set(cacheKey, responseData);
-    res.json(responseData);
+
+    const clientResponse = { ...responseData };
+    delete clientResponse.rawInfo;
+    res.json(clientResponse);
   } catch (err) {
     console.error('[/api/info]', err.message);
     const { status, error } = friendlyError(err.message);
@@ -456,10 +468,26 @@ app.get('/api/download', async (req, res) => {
   res.setHeader('Content-Type', 'video/mp4');
   res.setHeader('Content-Disposition', 'attachment; filename="video.mp4"');
 
+  const cacheKey = url.trim();
+  const cached = infoCache.get(cacheKey);
+
+  let downloadArgs;
+  let rawInfo = null;
+
+  if (cached && cached.rawInfo) {
+    console.log(`[Cache HIT] /api/download YouTube/TikTok using load-info-json: ${cacheKey}`);
+    rawInfo = cached.rawInfo;
+    downloadArgs = [ '--load-info-json', '-', '-f', format, '--merge-output-format', 'mp4', '-o', '-' ];
+  } else {
+    console.log(`[Cache MISS] /api/download YouTube/TikTok standard fetch: ${cacheKey}`);
+    downloadArgs = [ url, '-f', format, '--merge-output-format', 'mp4', '--no-playlist', '-o', '-' ];
+  }
+
   const proc = ytDlpStream(
-    [ url, '-f', format, '--merge-output-format', 'mp4', '--no-playlist', '-o', '-' ],
+    downloadArgs,
     res,
-    platform
+    platform,
+    rawInfo
   );
 
   proc.on('close', (code) => {
