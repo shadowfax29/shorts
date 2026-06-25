@@ -11,6 +11,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { friendlyError, cookieArgs, COOKIE_FILES } from './lib/helpers.js';
 import { scrapeInstagramReel } from './lib/instagramScraper.js';
+import { infoCache } from './lib/cache.js';
 import ffmpeg from "fluent-ffmpeg";
 import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
 import fs from "fs";
@@ -120,10 +121,12 @@ function detectPlatform(url) {
   } catch { return null; }
 }
 
+const GLOBAL_YTDLP_ARGS = ['--no-call-home', '--no-check-certificate'];
+
 /** Run yt-dlp and collect stdout as a string. Rejects on non-zero exit. */
 function ytDlpJson(args, platform) {
   return new Promise((resolve, reject) => {
-    const proc = spawn(YTDLP_BIN, [...args, ...cookieArgs(platform, COOKIES_DIR), '--ffmpeg-location', FFMPEG_BIN], { windowsHide: true });
+    const proc = spawn(YTDLP_BIN, [...args, ...GLOBAL_YTDLP_ARGS, ...cookieArgs(platform, COOKIES_DIR), '--ffmpeg-location', FFMPEG_BIN], { windowsHide: true });
     let out = '', err = '';
     proc.stdout.on('data', d => (out += d));
     proc.stderr.on('data', d => (err += d));
@@ -138,7 +141,7 @@ function ytDlpJson(args, platform) {
 
 /** Spawn yt-dlp and pipe stdout to res. Returns the child process. */
 function ytDlpStream(args, res, platform) {
-  const proc = spawn(YTDLP_BIN, [...args, ...cookieArgs(platform, COOKIES_DIR), '--ffmpeg-location', FFMPEG_BIN], { windowsHide: true });
+  const proc = spawn(YTDLP_BIN, [...args, ...GLOBAL_YTDLP_ARGS, ...cookieArgs(platform, COOKIES_DIR), '--ffmpeg-location', FFMPEG_BIN], { windowsHide: true });
   proc.stdout.pipe(res);
   proc.stderr.on('data', d => process.stderr.write(d));
   proc.on('error', e => {
@@ -247,7 +250,7 @@ app.get('/api/formats', async (req, res) => {
 // GET /api/info?url=…
 // ──────────────────────────────────────────────
 app.get('/api/info', async (req, res) => {
-  const { url } = req.query;
+  const { url, force } = req.query;
   if (!url) return res.status(400).json({ error: 'URL is required.' });
 
   const platform = detectPlatform(url);
@@ -255,19 +258,39 @@ app.get('/api/info', async (req, res) => {
     error: 'Unsupported platform. Paste a YouTube, TikTok, or Instagram Reels URL.',
   });
 
+  const cacheKey = url.trim();
+
+  // Check cache unless force refresh is requested
+  if (force !== 'true') {
+    const cached = infoCache.get(cacheKey);
+    if (cached) {
+      console.log(`[Cache HIT] /api/info for ${platform}: ${cacheKey}`);
+      return res.json(cached);
+    }
+  }
+  console.log(`[Cache MISS] /api/info for ${platform}: ${cacheKey}`);
+
   try {
     // Instagram: scrape page directly — no yt-dlp, no cookies needed for public reels
-if (platform === 'instagram') {
-  const { videoUrl, audioUrl, title, thumbnail, caption, hashtags } =
-    await scrapeInstagramReel(url);
-  return res.json({
-    platform, title, thumbnail,
-    duration: null, uploader: null, qualities: [],
-    videoUrl, audioUrl, caption, hashtags,
-  });
-}
+    if (platform === 'instagram') {
+      const scraped = await scrapeInstagramReel(url);
+      const responseData = {
+        platform,
+        title: scraped.title,
+        thumbnail: scraped.thumbnail,
+        duration: null,
+        uploader: null,
+        qualities: [],
+        videoUrl: scraped.videoUrl,
+        audioUrl: scraped.audioUrl,
+        caption: scraped.caption,
+        hashtags: scraped.hashtags,
+      };
+      infoCache.set(cacheKey, responseData);
+      return res.json(responseData);
+    }
 
-    const raw  = await ytDlpJson([ url, '--dump-json', '--no-playlist', '--no-warnings' ], platform);
+    const raw  = await ytDlpJson([ url, '--dump-json', '--no-playlist', '--no-warnings', '--flat-playlist' ], platform);
     const meta = JSON.parse(raw);
 
     // Build quality list for YouTube only
@@ -295,14 +318,16 @@ if (platform === 'instagram') {
         .slice(0, 8);
     }
 
-    res.json({
+    const responseData = {
       platform,
       title:     meta.title     || 'Untitled',
       thumbnail: meta.thumbnail || null,
       duration:  meta.duration  || null,
       uploader:  meta.uploader  || meta.channel || null,
       qualities,
-    });
+    };
+    infoCache.set(cacheKey, responseData);
+    res.json(responseData);
   } catch (err) {
     console.error('[/api/info]', err.message);
     const { status, error } = friendlyError(err.message);
@@ -316,43 +341,45 @@ if (platform === 'instagram') {
 
 app.get("/api/audio", async (req, res) => {
   const { videoUrl } = req.query;
-console.log("========== AUDIO DEBUG ==========");
-console.log("Video URL:", videoUrl);
-console.log("FFmpeg binary:", FFMPEG_BIN);
-console.log("OS tmp dir:", os.tmpdir());
+  console.log("========== AUDIO STREAMING ==========");
+  console.log("Video URL:", videoUrl);
+  console.log("FFmpeg binary:", FFMPEG_BIN);
+
   if (!videoUrl) {
     return res.status(400).json({
       error: "videoUrl is required"
     });
   }
 
-  const output = join(os.tmpdir(), `${Date.now()}.mp3`);
+  res.setHeader('Content-Type', 'audio/mpeg');
+  res.setHeader('Content-Disposition', 'attachment; filename="audio.mp3"');
 
-  ffmpeg(videoUrl)
-  .noVideo()
-  .audioCodec("libmp3lame")
-  .format("mp3")
-  .on("start", cmd => {
-    console.log("FFmpeg Command:", cmd);
-  })
-  .on("stderr", line => {
-    console.log("FFmpeg:", line);
-  })
-  .on("end", () => {
-    res.download(output, "audio.mp3", () => {
-      if (fs.existsSync(output)) {
-        fs.unlinkSync(output);
+  const command = ffmpeg(videoUrl)
+    .noVideo()
+    .audioCodec("libmp3lame")
+    .format("mp3")
+    .on("start", cmd => {
+      console.log("FFmpeg Command:", cmd);
+    })
+    .on("error", (err) => {
+      console.error("[FFmpeg error]", err.message);
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: "Audio extraction failed"
+        });
       }
     });
-  })
-  .on("error", (err) => {
-    console.error(err);
-    res.status(500).json({
-      error: "Audio extraction failed"
-    });
-  })
-  .save(output);   // <-- ADD HERE
-      
+
+  command.pipe(res, { end: true });
+
+  // Kill ffmpeg if client disconnects mid-stream
+  req.on('close', () => {
+    try {
+      command.kill('SIGTERM');
+    } catch (e) {
+      console.error('Failed to kill ffmpeg process on request close:', e.message);
+    }
+  });
 });
 
 // ──────────────────────────────────────────────
@@ -366,7 +393,33 @@ app.get('/api/download', async (req, res) => {
   // Instagram: scrape CDN URL and proxy-stream it
   if (platform === 'instagram') {
     try {
-      const { videoUrl } = await scrapeInstagramReel(url);
+      const cacheKey = url.trim();
+      let videoUrl;
+      const cached = infoCache.get(cacheKey);
+      
+      if (cached && cached.videoUrl) {
+        console.log(`[Cache HIT] /api/download instagram: ${cacheKey}`);
+        videoUrl = cached.videoUrl;
+      } else {
+        console.log(`[Cache MISS] /api/download instagram: ${cacheKey}`);
+        const scraped = await scrapeInstagramReel(url);
+        videoUrl = scraped.videoUrl;
+        
+        // Cache this metadata
+        infoCache.set(cacheKey, {
+          platform,
+          title: scraped.title,
+          thumbnail: scraped.thumbnail,
+          duration: null,
+          uploader: null,
+          qualities: [],
+          videoUrl: scraped.videoUrl,
+          audioUrl: scraped.audioUrl,
+          caption: scraped.caption,
+          hashtags: scraped.hashtags,
+        });
+      }
+
       const upstream = await fetch(videoUrl, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',

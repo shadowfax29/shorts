@@ -55,16 +55,16 @@ describe('scrapeInstagramReel', () => {
     assert.match(capturedHeaders['Referer'], /instagram\.com/);
   });
   it('extracts audioUrl when audio field present in JSON', async () => {
-  const html = `
+    const html = `
     <meta property="og:video" content="https://cdn.instagram.com/video.mp4" />
     <script>"audio":{"url":"https:\\/\\/cdn.instagram.com\\/audio.mp4"}</script>`;
-  const result = await scrapeInstagramReel('https://www.instagram.com/reels/abc/', mockFetch(html));
-  assert.equal(result.audioUrl, 'https://cdn.instagram.com/audio.mp4');
-});
+    const result = await scrapeInstagramReel('https://www.instagram.com/reels/abc/', mockFetch(html));
+    assert.equal(result.audioUrl, 'https://cdn.instagram.com/audio.mp4');
+  });
 
-it('returns null audioUrl when no audio found', async () => {
-  const html = makeHtml({ video: 'https://cdn.instagram.com/video.mp4' });
-  const result = await scrapeInstagramReel('https://www.instagram.com/reels/abc/', mockFetch(html));
-  assert.equal(result.audioUrl, null);
-});
+  it('returns null audioUrl when no audio found', async () => {
+    const html = makeHtml({ video: 'https://cdn.instagram.com/video.mp4' });
+    const result = await scrapeInstagramReel('https://www.instagram.com/reels/abc/', mockFetch(html));
+    assert.equal(result.audioUrl, null);
+  });
 });

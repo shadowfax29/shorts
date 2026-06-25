@@ -5,9 +5,9 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export const COOKIE_FILES = {
-  youtube:   'cookies.txt',
+  youtube: 'cookies.txt',
   instagram: 'instagram_cookies.txt',
-  tiktok:    'tiktok_cookies.txt',
+  tiktok: 'tiktok_cookies.txt',
 };
 
 export function friendlyError(msg) {

@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
-    "test": "node --test lib/helpers.test.js lib/instagramScraper.test.js"
+    "test": "node --test lib/helpers.test.js lib/instagramScraper.test.js lib/cache.test.js"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",

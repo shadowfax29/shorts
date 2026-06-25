@@ -96,11 +96,11 @@ export async function scrapeInstagramReel(url, fetchFn = globalThis.fetch) {
 
   return {
     videoUrl,
-    audioUrl:  extractAudioUrl(html),   // null if not found / already muxed
-    title:     extractTitle(html),
+    audioUrl: extractAudioUrl(html),   // null if not found / already muxed
+    title: extractTitle(html),
     thumbnail: extractThumbnail(html),
     caption,
-    hashtags:  extractHashtags(caption),
+    hashtags: extractHashtags(caption),
   };
 }
 
