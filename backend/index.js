@@ -121,7 +121,7 @@ function detectPlatform(url) {
   } catch { return null; }
 }
 
-const GLOBAL_YTDLP_ARGS = ['--no-call-home', '--no-check-certificate'];
+const GLOBAL_YTDLP_ARGS = ['--no-check-certificate'];
 
 /** Run yt-dlp and collect stdout as a string. Rejects on non-zero exit. */
 function ytDlpJson(args, platform) {
