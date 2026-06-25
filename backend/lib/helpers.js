@@ -31,6 +31,17 @@ export function friendlyError(msg) {
 export function cookieArgs(platform, cookiesDir = __dirname) {
   const filename = COOKIE_FILES[platform];
   if (!filename) return [];
+  
   const path = join(cookiesDir, filename);
-  return existsSync(path) ? ['--cookies', path] : [];
+  if (existsSync(path)) {
+    return ['--cookies', path];
+  }
+
+  // Fallback to reading cookies from a local browser if configured (local dev)
+  if (platform === 'youtube' && process.env.YT_COOKIES_BROWSER) {
+    return ['--cookies-from-browser', process.env.YT_COOKIES_BROWSER];
+  }
+
+  return [];
 }
+
