@@ -10,6 +10,8 @@ import { spawn } from 'child_process';
 import { existsSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import http from 'http';
+import https from 'https';
 import { friendlyError, cookieArgs, COOKIE_FILES } from './lib/helpers.js';
 import { scrapeInstagramReel } from './lib/instagramScraper.js';
 import { infoCache } from './lib/cache.js';
@@ -133,13 +135,31 @@ function detectPlatform(url) {
 
 const GLOBAL_YTDLP_ARGS = [
   '--no-check-certificate', '--no-config', '--no-cache-dir', '--no-call-home',
+  '--no-check-formats',
   '--socket-timeout', '15',
   '--extractor-retries', '1',
   '--retries', '1',
   '--fragment-retries', '1',
   '--no-warnings',
-  '--quiet'
+  '--quiet',
+  '--no-youtube-prefer-ffmpeg',
+  '--youtube-skip-dash-manifest',
+  '--youtube-skip-hls-manifest',
+  '--throttled-rate', '100K',
+  '--extractor-args', 'youtube:player_client=android,mobile;player_skip=webpage,configs',
 ];
+
+const KEEPALIVE_AGENT = new https.Agent({ keepAlive: true, maxSockets: 16, timeout: 30000 });
+
+// Request coalescing: deduplicate in-flight fetches for the same URL
+const inflightFetches = new Map();
+async function coalesceFetch(key, fetcher) {
+  const existing = inflightFetches.get(key);
+  if (existing) return existing;
+  const promise = fetcher().finally(() => inflightFetches.delete(key));
+  inflightFetches.set(key, promise);
+  return promise;
+}
 
 /** Run yt-dlp and collect stdout as a string. Rejects on non-zero exit. */
 function ytDlpJson(args, platform) {
@@ -299,8 +319,10 @@ app.get('/api/info', async (req, res) => {
   try {
     // Instagram: use mobile version which is smaller/faster
     if (platform === 'instagram') {
-      const mobileUrl = url.replace('www.instagram.com', 'm.instagram.com');
-      const scraped = await scrapeInstagramReel(mobileUrl);
+      const scraped = await coalesceFetch('ig:' + cacheKey, () => {
+        const mobileUrl = url.replace('www.instagram.com', 'm.instagram.com');
+        return scrapeInstagramReel(mobileUrl);
+      });
       const responseData = {
         platform,
         title: scraped.title,
@@ -317,7 +339,9 @@ app.get('/api/info', async (req, res) => {
       return res.json(responseData);
     }
 
-    const raw  = await ytDlpJson([ url, '--dump-json', '--no-playlist', '--no-warnings', '--flat-playlist' ], platform);
+    const raw  = await coalesceFetch('yt:' + cacheKey, () =>
+      ytDlpJson([ url, '--dump-json', '--no-playlist', '--no-warnings', '--flat-playlist' ], platform)
+    );
     const meta = JSON.parse(raw);
 
     // Build quality list for YouTube only
@@ -451,6 +475,7 @@ app.get('/api/download', async (req, res) => {
       }
 
       const upstream = await fetch(videoUrl, {
+        agent: KEEPALIVE_AGENT,
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
           'Referer': 'https://www.instagram.com/',
@@ -528,6 +553,7 @@ app.get('/api/thumbnail', async (req, res) => {
 
   const fetchAndStream = async (thumbUrl) => {
     const imgRes = await fetch(thumbUrl, {
+      agent: KEEPALIVE_AGENT,
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Referer':    'https://www.instagram.com/',

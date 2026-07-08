@@ -259,6 +259,7 @@
   border-radius: 18px;
   background: var(--surface, #fff);
   border: 1px solid rgba(0,0,0,.08);
+  overflow: hidden;
 }
 
 .captionCard h3,
@@ -282,6 +283,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  overflow: hidden;
 }
 
 .hashtag {
@@ -292,8 +294,12 @@
   font-weight: 600;
   font-size: .9rem;
   transition: .2s;
-    border: none;
+  border: none;
   cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
 }
 
 .hashtag:hover {
