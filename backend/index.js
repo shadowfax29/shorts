@@ -5,6 +5,7 @@
  */
 import express from 'express';
 import cors    from 'cors';
+import compression from 'compression';
 import { spawn } from 'child_process';
 import { existsSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
@@ -17,6 +18,7 @@ import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
 import fs from "fs";
 import os from "os";
 import path from "path";
+import { Readable } from "stream";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app  = express();
@@ -105,7 +107,15 @@ app.use(cors({
     }
   }
 }));
-app.use(express.json());
+app.use(compression());
+app.use(express.json({ limit: '10mb' }));
+
+app.use((req, res, next) => {
+  res.setTimeout(30000, () => {
+    res.status(503).json({ error: 'Request timeout' });
+  });
+  next();
+});
 
 // ──────────────────────────────────────────────
 // Helpers
@@ -121,7 +131,15 @@ function detectPlatform(url) {
   } catch { return null; }
 }
 
-const GLOBAL_YTDLP_ARGS = ['--no-check-certificate'];
+const GLOBAL_YTDLP_ARGS = [
+  '--no-check-certificate', '--no-config', '--no-cache-dir', '--no-call-home',
+  '--socket-timeout', '15',
+  '--extractor-retries', '1',
+  '--retries', '1',
+  '--fragment-retries', '1',
+  '--no-warnings',
+  '--quiet'
+];
 
 /** Run yt-dlp and collect stdout as a string. Rejects on non-zero exit. */
 function ytDlpJson(args, platform) {
@@ -279,9 +297,10 @@ app.get('/api/info', async (req, res) => {
   console.log(`[Cache MISS] /api/info for ${platform}: ${cacheKey}`);
 
   try {
-    // Instagram: scrape page directly — no yt-dlp, no cookies needed for public reels
+    // Instagram: use mobile version which is smaller/faster
     if (platform === 'instagram') {
-      const scraped = await scrapeInstagramReel(url);
+      const mobileUrl = url.replace('www.instagram.com', 'm.instagram.com');
+      const scraped = await scrapeInstagramReel(mobileUrl);
       const responseData = {
         platform,
         title: scraped.title,
@@ -417,7 +436,6 @@ app.get('/api/download', async (req, res) => {
         const scraped = await scrapeInstagramReel(url);
         videoUrl = scraped.videoUrl;
         
-        // Cache this metadata
         infoCache.set(cacheKey, {
           platform,
           title: scraped.title,
@@ -437,13 +455,14 @@ app.get('/api/download', async (req, res) => {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
           'Referer': 'https://www.instagram.com/',
         },
+        keepalive: true,
       });
       if (!upstream.ok) return res.status(502).json({ error: 'Failed to fetch video from Instagram CDN.' });
       res.setHeader('Content-Type', upstream.headers.get('content-type') || 'video/mp4');
       res.setHeader('Content-Disposition', 'attachment; filename="reel.mp4"');
       const ct = upstream.headers.get('content-length');
       if (ct) res.setHeader('Content-Length', ct);
-      upstream.body.pipeTo(new WritableStream({ write(chunk) { res.write(chunk); }, close() { res.end(); } }));
+      Readable.fromWeb(upstream.body).pipe(res);
     } catch (err) {
       console.error('[/api/download instagram]', err.message);
       res.status(503).json({ error: err.message });
@@ -507,27 +526,36 @@ app.get('/api/thumbnail', async (req, res) => {
   const { videoUrl } = req.query;
   if (!videoUrl) return res.status(400).end();
 
-  try {
-    // Ask yt-dlp for just the thumbnail URL (fast — no format resolution)
-    const raw  = await ytDlpJson([ videoUrl, '--dump-json', '--no-playlist', '--no-warnings', '--skip-download' ], detectPlatform(videoUrl));
-    const meta = JSON.parse(raw);
-    const thumbUrl = meta.thumbnail;
-    if (!thumbUrl) return res.status(404).end();
-
-    // Fetch the fresh URL server-side and stream it back
+  const fetchAndStream = async (thumbUrl) => {
     const imgRes = await fetch(thumbUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Referer':    'https://www.instagram.com/',
       },
+      keepalive: true,
     });
-
-    if (!imgRes.ok) return res.status(imgRes.status).end();
-
+    if (!imgRes.ok) return false;
     res.setHeader('Content-Type', imgRes.headers.get('content-type') || 'image/jpeg');
-    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
     const buf = await imgRes.arrayBuffer();
     res.end(Buffer.from(buf));
+    return true;
+  };
+
+  // Check cache first (no yt-dlp call needed)
+  const cached = infoCache.get(videoUrl.trim());
+  if (cached?.thumbnail) {
+    if (await fetchAndStream(cached.thumbnail)) return;
+  }
+
+  // Fall back to yt-dlp for uncached URLs
+  try {
+    const raw  = await ytDlpJson([ videoUrl, '--dump-json', '--no-playlist', '--no-warnings', '--skip-download' ], detectPlatform(videoUrl));
+    const meta = JSON.parse(raw);
+    const thumbUrl = meta.thumbnail;
+    if (!thumbUrl) return res.status(404).end();
+    if (await fetchAndStream(thumbUrl)) return;
+    res.status(502).end();
   } catch (err) {
     console.error('[thumbnail]', err.message);
     res.status(502).end();
