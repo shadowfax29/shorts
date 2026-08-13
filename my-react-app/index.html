@@ -3,53 +3,35 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta name="theme-color" content="#1e88ff" />
+    <meta name="theme-color" content="#1e88ff" />
 
-    <!-- Primary SEO -->
-<title>
-DownloadShorts - Instagram Reels Downloader |
-Download Instagram Reels Without Watermark
-</title>
-<meta
-name="description"
-content="Download Instagram Reels online for free. Save Instagram Reel videos and audio in HD without watermark. Fast and secure Instagram Reels downloader."
->
-<meta
-name="keywords"
-content="
-instagram reel downloader,
-download instagram reels,
-instagram reels download,
-instagram reel video download,
-save instagram reel,
-download reel from instagram,
-instagram reel audio download,
-download audio from instagram reel,
-instagram video downloader,
-download reels without watermark
-">    <meta name="robots" content="index, follow" />
+    <!-- Primary SEO fallbacks (overridden per-page by react-helmet-async).
+         Title/description/OG/Twitter live in each route's Helmet so the
+         pre-rendered HTML never contains duplicate head tags. -->
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <meta name="author" content="DownloadShorts" />
+    <meta name="application-name" content="DownloadShorts" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="DownloadShorts" />
 
     <!-- Canonical — overridden per-page by react-helmet-async -->
     <!-- DO NOT add a hardcoded canonical here; it would apply to every route -->
 
-    <!-- Open Graph fallback (overridden per-page) -->
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="DownloadShorts" />
-    <meta property="og:image" content="https://downloadshorts.com/logo.png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
+    <!-- Internationalization -->
+    <link rel="alternate" hreflang="x-default" href="https://downloadshorts.com/" />
+    <link rel="alternate" hreflang="en" href="https://downloadshorts.com/" />
 
-    <!-- Twitter Card fallback (overridden per-page) -->
-    <meta name="twitter:card" content="summary_large_image" />
-
-<!-- Favicons & App Icons -->
-<link rel="icon" type="image/x-icon" href="/favicon.ico" sizes="16x16 32x32 48x48 96x96" />
-<link rel="icon" type="image/png" sizes="96x96"   href="/icon-96.png" />
-<link rel="icon" type="image/png" sizes="192x192"  href="/icon-192.png" />
-<link rel="icon" type="image/png" sizes="512x512"  href="/icon.png" />
-<link rel="apple-touch-icon" sizes="180x180" href="/apple-icon.png" />
-<link rel="shortcut icon" href="/favicon.ico" />
+    <!-- Favicons & App Icons -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" sizes="16x16 32x32 48x48 96x96" />
+    <link rel="icon" type="image/png" sizes="96x96"   href="/icon-96.png" />
+    <link rel="icon" type="image/png" sizes="192x192"  href="/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512"  href="/icon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-icon.png" />
+    <link rel="shortcut icon" href="/favicon.ico" />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -58,23 +40,62 @@ download reels without watermark
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
 
     <!-- Schema.org structured data -->
- <script type="application/ld+json">
-{
-  "@context":"https://schema.org",
-  "@type":"WebApplication",
-  "name":"DownloadShorts",
-  "url":"https://downloadshorts.com",
-  "logo":"https://downloadshorts.com/logo.png",
-  "description":"Free Instagram Reels downloader to save Instagram videos and audio in HD quality without watermark.",
-  "applicationCategory":"MultimediaApplication",
-  "operatingSystem":"Any",
-  "offers":{
-    "@type":"Offer",
-    "price":"0",
-    "priceCurrency":"USD"
-  }
-}
-</script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://downloadshorts.com/#organization",
+          "name": "DownloadShorts",
+          "url": "https://downloadshorts.com",
+          "logo": {
+            "@type": "ImageObject",
+            "@id": "https://downloadshorts.com/#logo",
+            "url": "https://downloadshorts.com/logo.png",
+            "width": 512,
+            "height": 512
+          },
+          "image": "https://downloadshorts.com/og-image.png",
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "email": "contact@downloadshorts.com",
+            "contactType": "customer support",
+            "availableLanguage": "English"
+          }
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://downloadshorts.com/#website",
+          "url": "https://downloadshorts.com/",
+          "name": "DownloadShorts - Instagram Reels Downloader",
+          "description": "Free online Instagram Reels downloader. Save Instagram Reel videos and audio in HD quality without watermark. No login required.",
+          "publisher": { "@id": "https://downloadshorts.com/#organization" },
+          "inLanguage": "en"
+        },
+        {
+          "@type": "WebApplication",
+          "@id": "https://downloadshorts.com/#webapp",
+          "name": "DownloadShorts",
+          "url": "https://downloadshorts.com",
+          "logo": "https://downloadshorts.com/logo.png",
+          "image": "https://downloadshorts.com/og-image.png",
+          "description": "Free Instagram Reels downloader to save Instagram videos and audio in HD quality without watermark.",
+          "applicationCategory": "MultimediaApplication",
+          "operatingSystem": "Any",
+          "browserRequirements": "Requires JavaScript",
+          "isFamilyFriendly": true,
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+          },
+          "publisher": { "@id": "https://downloadshorts.com/#organization" },
+          "inLanguage": "en"
+        }
+      ]
+    }
+    </script>
   </head>
 <body>
 
@@ -83,19 +104,19 @@ download reels without watermark
     <h1>DownloadShorts - Instagram Reels Downloader</h1>
 
     <p>
-    DownloadShorts is a free online Instagram Reels downloader
-that lets you save Instagram Reel videos and audio
-in HD quality without watermark.
+      DownloadShorts is a free online Instagram Reels downloader
+      that lets you save Instagram Reel videos and audio
+      in HD quality without watermark.
     </p>
 
     <h2>Features</h2>
     <ul>
-    <li>Download Instagram Reels</li>
-<li>Download Instagram Reel Audio</li>
-<li>HD Quality Downloads</li>
-<li>No Watermark</li>
-<li>No Login Required</li>
-<li>Works on Mobile & Desktop</li>
+      <li>Download Instagram Reels</li>
+      <li>Download Instagram Reel Audio</li>
+      <li>HD Quality Downloads</li>
+      <li>No Watermark</li>
+      <li>No Login Required</li>
+      <li>Works on Mobile & Desktop</li>
     </ul>
   </noscript>
 

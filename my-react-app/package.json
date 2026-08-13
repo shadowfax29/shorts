@@ -6,8 +6,29 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "postbuild": "node scripts/prerender.js",
     "lint": "eslint .",
     "preview": "vite preview"
+  },
+  "reactSnap": {
+    "source": "dist",
+    "include": [
+      "/",
+      "/privacy-policy",
+      "/terms-and-conditions",
+      "/contact"
+    ],
+    "crawl": true,
+    "concurrency": 4,
+    "skipThirdPartyRequests": true,
+    "minifyHtml": {
+      "collapseWhitespace": true
+    },
+    "puppeteerArgs": [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-gpu"
+    ]
   },
   "dependencies": {
     "react": "^19.2.6",

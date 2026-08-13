@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { Helmet } from 'react-helmet-async';
 import styles from './LandingPage.module.css';
 import { detectPlatform } from '../utils/platform.js';
+import { SITE } from '../seo/seo-config.js';
 import PlatformBadge from './PlatformBadge.jsx';
 // FAQ data — single source of truth for both visible HTML and JSON-LD schema
 const FAQ_ITEMS = [
@@ -83,10 +84,19 @@ const handlePaste = async () => {
         <meta property="og:title" content="DownloadShorts - Free Instagram Reels Downloader" />
         <meta property="og:description" content="Download Instagram Reels without watermark in HD quality. Free, fast, no login required." />
         <meta property="og:url" content="https://downloadshorts.com/" />
-        <meta property="og:image" content="https://downloadshorts.com/logo.png" />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content={SITE.name} />
+        <meta property="og:locale" content={SITE.locale} />
+        <meta property="og:image" content={SITE.ogImage} />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content={SITE.ogImageAlt} />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:site" content={SITE.twitterHandle} />
         <meta name="twitter:title" content="DownloadShorts - Free Instagram Reels Downloader" />
         <meta name="twitter:description" content="Download Instagram Reels without watermark in HD quality. Free and fast." />
-        <meta name="twitter:image" content="https://downloadshorts.com/logo.png" />
+        <meta name="twitter:image" content={SITE.ogImage} />
+        <meta name="twitter:image:alt" content={SITE.ogImageAlt} />
         <script type="application/ld+json">{FAQ_SCHEMA}</script>
       </Helmet>
       {/* ── Hero ── */}
@@ -114,7 +124,10 @@ const handlePaste = async () => {
   ref={inputRef}
   className={styles.input}
   type="url"
+  name="url"
   value={url}
+  autoComplete="off"
+  aria-label="Paste your Instagram Reel URL"
   placeholder="Paste your Instagram Reel URL here..."
 
   onChange={(e) => {
@@ -126,6 +139,9 @@ const handlePaste = async () => {
       onSubmit(value.trim());
     }
   }}
+
+  onFocus={() => setFocused(true)}
+  onBlur={() => setFocused(false)}
 
   onPaste={(e) => {
     const pasted = e.clipboardData.getData("text").trim();

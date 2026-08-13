@@ -9,7 +9,7 @@ export default function Nav() {
     <header className={styles.nav}>
       <div className={styles.inner}>
        <Link to="/" className={styles.logoLink} aria-label="DownloadShorts home">
-  <img src={logo} alt="DownloadShorts logo" className={styles.logoImg} />
+  <img src={logo} alt="DownloadShorts logo" width="512" height="512" decoding="async" className={styles.logoImg} />
   
 <div
   style={{

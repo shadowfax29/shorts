@@ -1,5 +1,15 @@
 import { Helmet } from 'react-helmet-async';
 import styles from './PrivacyPolicy.module.css';
+import { SITE } from '../seo/seo-config.js';
+
+const BREADCRUMB_SCHEMA = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://downloadshorts.com/' },
+    { '@type': 'ListItem', position: 2, name: 'Terms and Conditions', item: 'https://downloadshorts.com/terms-and-conditions' },
+  ],
+});
 
 export default function TermsAndConditions() {
   return (
@@ -11,10 +21,20 @@ export default function TermsAndConditions() {
         <meta property="og:title" content="Terms and Conditions - DownloadShorts" />
         <meta property="og:description" content="Read the DownloadShorts Terms and Conditions for using our free Instagram Reels downloader." />
         <meta property="og:url" content="https://downloadshorts.com/terms-and-conditions" />
-        <meta property="og:image" content="https://downloadshorts.com/logo.png" />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content={SITE.name} />
+        <meta property="og:locale" content={SITE.locale} />
+        <meta property="og:image" content={SITE.ogImage} />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content={SITE.ogImageAlt} />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:site" content={SITE.twitterHandle} />
         <meta name="twitter:title" content="Terms and Conditions - DownloadShorts" />
         <meta name="twitter:description" content="Read the DownloadShorts Terms and Conditions." />
-        <meta name="twitter:image" content="https://downloadshorts.com/logo.png" />
+        <meta name="twitter:image" content={SITE.ogImage} />
+        <meta name="twitter:image:alt" content={SITE.ogImageAlt} />
+        <script type="application/ld+json">{BREADCRUMB_SCHEMA}</script>
       </Helmet>
       <div className={styles.container}>
         <h1>Terms and Conditions</h1>

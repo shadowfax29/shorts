@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Helmet } from 'react-helmet-async';
 import styles from './VideoResult.module.css';
 import PlatformBadge from './PlatformBadge.jsx';
 
@@ -45,16 +46,20 @@ export default function VideoResult({
   const [selected, setSelected] = useState(qualities?.[0]?.formatId ?? null);
   const selectedQ    = qualities?.find(q => q.formatId === selected);
 
-const thumbnailSrc = getThumbnailSrc(platform, thumbnail);
+const thumbnailSrc = getThumbnailSrc(platform, thumbnail, url);
   return (
     <section className={`${styles.section} fade-in-up`}>
+      <Helmet>
+        <title>{title ? `Download ${title}` : 'Download Video - DownloadShorts'}</title>
+        <meta name="description" content={caption ? `Download "${title}" without watermark in HD quality. Free, fast and no login required with DownloadShorts.` : 'Download your video without watermark in HD quality. Free, fast and no login required with DownloadShorts.'} />
+      </Helmet>
       <div className={styles.container}>
         <div className={styles.card}>
 
           {/* Thumbnail */}
           <div className={styles.thumb}>
             {thumbnailSrc ? (
-              <img src={thumbnailSrc} alt={title} />
+              <img src={thumbnailSrc} alt={title} decoding="async" loading="lazy" />
             ) : (
               <div className={styles.thumbPlaceholder}>
                 <span className="material-symbols-outlined" style={{ fontSize: 48 }}>movie</span>

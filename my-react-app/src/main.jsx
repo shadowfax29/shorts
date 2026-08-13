@@ -9,7 +9,7 @@ import { initGTM } from "./gtm";
 initGTM();
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <HelmetProvider>
+    <HelmetProvider defer={false}>
       <BrowserRouter>
         <App />
       </BrowserRouter>

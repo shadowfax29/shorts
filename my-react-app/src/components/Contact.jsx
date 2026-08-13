@@ -1,8 +1,40 @@
 import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import styles from './Contact.module.css';
+import { SITE } from '../seo/seo-config.js';
 
-const CONTACT_EMAIL = 'contact@downloadshorts.com';
+const CONTACT_EMAIL = SITE.contactEmail;
+
+const CONTACT_SCHEMA = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'ContactPage',
+      '@id': 'https://downloadshorts.com/contact',
+      url: 'https://downloadshorts.com/contact',
+      name: 'Contact DownloadShorts',
+      description:
+        'Contact DownloadShorts for support, questions, or to report an issue with our Instagram Reels downloader.',
+      mainEntity: {
+        '@type': 'Organization',
+        name: SITE.name,
+        url: SITE.url,
+        contactPoint: {
+          '@type': 'ContactPoint',
+          email: CONTACT_EMAIL,
+          contactType: 'customer support',
+        },
+      },
+    },
+    {
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://downloadshorts.com/' },
+        { '@type': 'ListItem', position: 2, name: 'Contact', item: 'https://downloadshorts.com/contact' },
+      ],
+    },
+  ],
+});
 
 export default function Contact() {
   const [title, setTitle]     = useState('');
@@ -35,10 +67,20 @@ export default function Contact() {
         <meta property="og:title" content="Contact Us - DownloadShorts" />
         <meta property="og:description" content="Contact DownloadShorts for support or to report an issue with our Instagram Reels downloader." />
         <meta property="og:url" content="https://downloadshorts.com/contact" />
-        <meta property="og:image" content="https://downloadshorts.com/logo.png" />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content={SITE.name} />
+        <meta property="og:locale" content={SITE.locale} />
+        <meta property="og:image" content={SITE.ogImage} />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content={SITE.ogImageAlt} />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:site" content={SITE.twitterHandle} />
         <meta name="twitter:title" content="Contact Us - DownloadShorts" />
         <meta name="twitter:description" content="Contact DownloadShorts for support or to report an issue." />
-        <meta name="twitter:image" content="https://downloadshorts.com/logo.png" />
+        <meta name="twitter:image" content={SITE.ogImage} />
+        <meta name="twitter:image:alt" content={SITE.ogImageAlt} />
+        <script type="application/ld+json">{CONTACT_SCHEMA}</script>
       </Helmet>
       <div className={styles.hero}>
         <h1>Contact <span>Us</span></h1>
