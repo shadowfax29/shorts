@@ -8,7 +8,9 @@
     "build": "vite build",
     "postbuild": "node scripts/prerender.js",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "prebuild": "node scripts/generate-sitemap.js",
+    "sitemap": "node scripts/generate-sitemap.js"
   },
   "reactSnap": {
     "source": "dist",

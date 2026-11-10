@@ -2,13 +2,17 @@ import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import styles from './VideoResult.module.css';
 import PlatformBadge from './PlatformBadge.jsx';
+import ClipTool from './ClipTool.jsx';
+import AdSlot from './AdSlot.jsx';
+import { AD_SLOTS } from '../seo/adSlots.js';
+import { apiUrl } from '../utils/api.js';
 
 function getThumbnailSrc(platform, thumbnail, videoUrl) {
   if (!thumbnail) return null;
   // Instagram CDN tokens expire and are session-locked.
   // Pass the original video page URL so the backend can re-fetch a fresh thumbnail.
   if (platform === 'instagram' && videoUrl) {
-    return `/api/thumbnail?videoUrl=${encodeURIComponent(videoUrl)}`;
+    return apiUrl('thumbnail', { videoUrl });
   }
   return thumbnail;
 }
@@ -36,6 +40,7 @@ export default function VideoResult({
   info,
   url,
   onDownload,
+  onDownloadClip,
   onExtractAudio,
   onReset,
   downloading,
@@ -43,7 +48,9 @@ export default function VideoResult({
 }) {  const { platform, title, thumbnail, duration, uploader, qualities,caption,hashtags } = info;
   const isYouTube = platform === 'youtube';
 
-  const [selected, setSelected] = useState(qualities?.[0]?.formatId ?? null);
+  // Default to 1080p: 4K files are huge and slow to prepare; users can still pick them.
+  const recommended = qualities?.find((q) => q.height <= 1080) ?? qualities?.[0];
+  const [selected, setSelected] = useState(recommended?.formatId ?? null);
   const selectedQ    = qualities?.find(q => q.formatId === selected);
 
 const thumbnailSrc = getThumbnailSrc(platform, thumbnail, url);
@@ -51,6 +58,8 @@ const thumbnailSrc = getThumbnailSrc(platform, thumbnail, url);
     <section className={`${styles.section} fade-in-up`}>
       <Helmet>
         <title>{title ? `Download ${title}` : 'Download Video - DownloadShorts'}</title>
+        {/* Per-video result screens are not landing pages - keep them out of the index */}
+        <meta name="robots" content="noindex, follow" />
         <meta name="description" content={caption ? `Download "${title}" without watermark in HD quality. Free, fast and no login required with DownloadShorts.` : 'Download your video without watermark in HD quality. Free, fast and no login required with DownloadShorts.'} />
       </Helmet>
       <div className={styles.container}>
@@ -148,7 +157,7 @@ const thumbnailSrc = getThumbnailSrc(platform, thumbnail, url);
                       onClick={() => setSelected(q.formatId)}
                       type="button"
                     >
-                      {q.label === qualities[0].label && (
+                      {q.formatId === recommended?.formatId && (
                         <span className={styles.qualityRecommended}>Recommended</span>
                       )}
                       <span className={styles.qualityRes}>{q.label}</span>
@@ -165,6 +174,14 @@ const thumbnailSrc = getThumbnailSrc(platform, thumbnail, url);
                   ))}
                 </div>
               </div>
+            )}
+
+            {/* Clip tool: YouTube only (Shorts and long videos) */}
+            {isYouTube && duration >= 2 && (
+              <ClipTool
+                duration={duration}
+                onClip={(start, end) => onDownloadClip(start, end, selectedQ?.height)}
+              />
             )}
 
             {/* TikTok / Instagram format row */}
@@ -189,7 +206,7 @@ const thumbnailSrc = getThumbnailSrc(platform, thumbnail, url);
             {/* Download button */}
             <button
               className={styles.downloadBtn}
-              onClick={() => onDownload(selected)}
+              onClick={() => onDownload(selectedQ?.height)}
               disabled={downloading}
               type="button"
             >
@@ -208,7 +225,7 @@ const thumbnailSrc = getThumbnailSrc(platform, thumbnail, url);
             </button>
             <button
   className={styles.downloadBtn}
-  onClick={() => onExtractAudio()}
+  onClick={onExtractAudio}
   disabled={extractingAudio}
   type="button"
   style={{ marginTop: "12px" }}
@@ -253,6 +270,7 @@ const thumbnailSrc = getThumbnailSrc(platform, thumbnail, url);
           </div>
 
         </div>
+        <AdSlot slot={AD_SLOTS.result} />
       </div>
     </section>
   );

@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PAGES } from '../src/seo/pages.js';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const pkgPath = join(root, 'package.json');
@@ -23,6 +24,13 @@ const executablePath = candidates.find((p) => existsSync(p));
 const original = readFileSync(pkgPath, 'utf8');
 const pkg = JSON.parse(original);
 pkg.reactSnap = pkg.reactSnap || {};
+// Prerender every landing page + the legal pages (single source: src/seo/pages.js)
+pkg.reactSnap.include = [
+  ...PAGES.map((p) => p.path),
+  '/privacy-policy',
+  '/terms-and-conditions',
+  '/contact',
+];
 if (executablePath) {
   pkg.reactSnap.puppeteerExecutablePath = executablePath;
 } else {

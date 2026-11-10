@@ -1,173 +1,130 @@
 import { useState, useRef } from 'react';
-import { Helmet } from 'react-helmet-async';
+import { Link } from 'react-router-dom';
 import styles from './LandingPage.module.css';
-import { detectPlatform } from '../utils/platform.js';
-import { SITE } from '../seo/seo-config.js';
+import { detectPlatform, isVideoUrl } from '../utils/platform.js';
+import { PAGE_BY_PATH } from '../seo/pages.js';
+import PageHead from '../seo/PageHead.jsx';
 import PlatformBadge from './PlatformBadge.jsx';
-// FAQ data — single source of truth for both visible HTML and JSON-LD schema
-const FAQ_ITEMS = [
-  {
-    question: 'Is DownloadShorts free?',
-    answer: 'Yes. DownloadShorts is completely free and does not require any subscription.',
-  },
-  {
-    question: 'Can I download Instagram Reel audio?',
-    answer: 'Yes. You can download Instagram Reel videos and audio in high quality.',
-  },
-  {
-    question: 'Do I need to log in?',
-    answer: 'No. DownloadShorts works without creating an account.',
-  },
-  {
-    question: 'Can I use it on mobile?',
-    answer: 'Yes. DownloadShorts works on Android, iPhone, tablets and desktop browsers.',
-  },
-];
+import AdSlot from './AdSlot.jsx';
+import { AD_SLOTS } from '../seo/adSlots.js';
 
-const FAQ_SCHEMA = JSON.stringify({
-  '@context': 'https://schema.org',
-  '@type': 'FAQPage',
-  mainEntity: FAQ_ITEMS.map(({ question, answer }) => ({
-    '@type': 'Question',
-    name: question,
-    acceptedAnswer: { '@type': 'Answer', text: answer },
-  })),
-});
-
-export default function LandingPage({ onSubmit }) {
-  const [url, setUrl]       = useState('');
-  const [focused, setFocused] = useState(false);
-  const [error, setError]   = useState('');
-  const inputRef            = useRef(null);
-
-  const platform = detectPlatform(url);
-
-const handlePaste = async () => {
-  try {
-    const text = await navigator.clipboard.readText();
-    const trimmed = text.trim();
-
-    if (!trimmed) return;
-
-    setUrl(trimmed);
-    setError('');
-
-    if (!detectPlatform(trimmed)) {
-      setError('Only Instagram Reels URLs are supported.');
-      return;
-    }
-
-      onSubmit(trimmed);
-  } catch {
-    inputRef.current?.focus();
-  }
+const ACCEPT_TEXT = {
+  instagram: 'Please paste a valid Instagram Reel or post link.',
+  youtube: 'Please paste a valid YouTube video, Shorts or youtu.be link.',
+  both: 'Please paste a valid Instagram Reel or YouTube video link.',
 };
 
-  const handleSubmit = (e) => {
-    e?.preventDefault();
-    const trimmed = url.trim();
-    if (!trimmed) { setError('Please paste a video URL first.'); return; }
-    if (!detectPlatform(trimmed)) {
-      setError('Only Instagram Reels URLs are supported.');
+/**
+ * One component renders every indexable tool page (home + keyword pages).
+ * All copy, <head> data and schema come from `page` (see seo/pages.js).
+ */
+export default function LandingPage({ page, onSubmit }) {
+  const [url, setUrl] = useState('');
+  const [focused, setFocused] = useState(false);
+  const [error, setError] = useState('');
+  const inputRef = useRef(null);
+
+  const platform = detectPlatform(url.trim());
+  const [intro, ...moreIntro] = page.sections[0].paragraphs;
+  const second = page.sections[1];
+
+  const submit = (value) => {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      setError('Please paste a video URL first.');
+      return;
+    }
+    if (!isVideoUrl(trimmed)) {
+      setError(ACCEPT_TEXT[page.accepts] || ACCEPT_TEXT.both);
       return;
     }
     setError('');
     onSubmit(trimmed);
   };
 
+  const handlePasteButton = async () => {
+    try {
+      const text = (await navigator.clipboard.readText()).trim();
+      if (!text) return;
+      setUrl(text);
+      submit(text);
+    } catch {
+      inputRef.current?.focus();
+    }
+  };
+
+  const related = page.related.map((p) => PAGE_BY_PATH[p]).filter(Boolean);
+
   return (
     <>
-      <Helmet>
-        <title>DownloadShorts - Free Instagram Reels Downloader | No Watermark</title>
-        <meta name="description" content="Download Instagram Reels for free in HD quality without watermark. No login required — paste the link and download instantly." />
-        <link rel="canonical" href="https://downloadshorts.com/" />
-        <meta property="og:title" content="DownloadShorts - Free Instagram Reels Downloader" />
-        <meta property="og:description" content="Download Instagram Reels without watermark in HD quality. Free, fast, no login required." />
-        <meta property="og:url" content="https://downloadshorts.com/" />
-        <meta property="og:type" content="website" />
-        <meta property="og:site_name" content={SITE.name} />
-        <meta property="og:locale" content={SITE.locale} />
-        <meta property="og:image" content={SITE.ogImage} />
-        <meta property="og:image:width" content="1200" />
-        <meta property="og:image:height" content="630" />
-        <meta property="og:image:alt" content={SITE.ogImageAlt} />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:site" content={SITE.twitterHandle} />
-        <meta name="twitter:title" content="DownloadShorts - Free Instagram Reels Downloader" />
-        <meta name="twitter:description" content="Download Instagram Reels without watermark in HD quality. Free and fast." />
-        <meta name="twitter:image" content={SITE.ogImage} />
-        <meta name="twitter:image:alt" content={SITE.ogImageAlt} />
-        <script type="application/ld+json">{FAQ_SCHEMA}</script>
-      </Helmet>
+      <PageHead page={page} />
+
       {/* ── Hero ── */}
       <section className={styles.hero}>
-        {/* background blobs */}
-        <div className={styles.blobTop}  aria-hidden="true" />
-        <div className={styles.blobBtm}  aria-hidden="true" />
+        <div className={styles.blobTop} aria-hidden="true" />
+        <div className={styles.blobBtm} aria-hidden="true" />
 
         <div className={styles.heroContent}>
-         <h1 className={styles.heroTitle}>
-  Instagram Reels Downloader
-</h1>
+          <h1 className={styles.heroTitle}>{page.h1}</h1>
+          <p className={styles.heroSubtitle}>{page.subtitle}</p>
 
-<p className={styles.heroSubtitle}>
-  Download Instagram Reels without watermark and save
-  Instagram Reel videos in HD quality for free.
-  No login required.
-</p>
-
-          {/* URL Input */}
-          <form className={styles.inputForm} onSubmit={handleSubmit} noValidate>
+          <form
+            className={styles.inputForm}
+            onSubmit={(e) => {
+              e.preventDefault();
+              submit(url);
+            }}
+            noValidate
+          >
             <div className={`${styles.inputWrap} ${focused ? styles.inputFocused : ''}`}>
-              <span className={`material-symbols-outlined ${styles.inputIcon}`}>link</span>
-<input
-  ref={inputRef}
-  className={styles.input}
-  type="url"
-  name="url"
-  value={url}
-  autoComplete="off"
-  aria-label="Paste your Instagram Reel URL"
-  placeholder="Paste your Instagram Reel URL here..."
-
-  onChange={(e) => {
-    const value = e.target.value;
-    setUrl(value);
-    setError("");
-
-    if (detectPlatform(value.trim())) {
-      onSubmit(value.trim());
-    }
-  }}
-
-  onFocus={() => setFocused(true)}
-  onBlur={() => setFocused(false)}
-
-  onPaste={(e) => {
-    const pasted = e.clipboardData.getData("text").trim();
-
-    setTimeout(() => {
-      if (detectPlatform(pasted)) {
-        onSubmit(pasted);
-      }
-    }, 0);
-  }}
-/>
+              <span className={`material-symbols-outlined ${styles.inputIcon}`} aria-hidden="true">link</span>
+              <input
+                ref={inputRef}
+                className={styles.input}
+                type="url"
+                name="url"
+                value={url}
+                autoComplete="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                aria-label={page.placeholder.replace(/\.+$/, '')}
+                placeholder={page.placeholder}
+                onChange={(e) => {
+                  setUrl(e.target.value);
+                  setError('');
+                }}
+                onFocus={() => setFocused(true)}
+                onBlur={() => setFocused(false)}
+                onPaste={(e) => {
+                  // Fetch immediately on paste; typing waits for the button / Enter.
+                  const pasted = e.clipboardData.getData('text').trim();
+                  if (isVideoUrl(pasted)) {
+                    e.preventDefault();
+                    setUrl(pasted);
+                    submit(pasted);
+                  }
+                }}
+              />
               {url ? (
-                <button type="button" className={styles.clearBtn} onClick={() => { setUrl(''); setError(''); }} aria-label="Clear">
-                  <span className="material-symbols-outlined">close</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className={styles.clearBtn}
+                    onClick={() => { setUrl(''); setError(''); inputRef.current?.focus(); }}
+                    aria-label="Clear"
+                  >
+                    <span className="material-symbols-outlined">close</span>
+                  </button>
+                  <button type="submit" className={styles.downloadBtn}>
+                    <span>Download</span>
+                    <span className="material-symbols-outlined" aria-hidden="true">download</span>
+                  </button>
+                </>
               ) : (
-           
-                 <button type="button" className={styles.downloadBtn} onClick={handlePaste}>
-                <span> Paste</span>
-                <span className="material-symbols-outlined icon-fill"></span>
-              </button>
+                <button type="button" className={styles.downloadBtn} onClick={handlePasteButton}>
+                  <span>Paste</span>
+                </button>
               )}
-              {/* <button type="submit" className={styles.downloadBtn}>
-                <span>Download</span>
-                <span className="material-symbols-outlined icon-fill">download</span>
-              </button> */}
             </div>
 
             {platform && (
@@ -178,47 +135,38 @@ const handlePaste = async () => {
             )}
             {error && <p className={styles.inputError} role="alert">{error}</p>}
           </form>
-
-          {/* Platform pills */}
-          {/* <div className={styles.platforms}>
-            {[
-              { id: 'youtube',   icon: 'play_circle',   label: 'YouTube',   color: '#ff0000' },
-              { id: 'tiktok',    icon: 'music_note',    label: 'TikTok',    color: '#000000' },
-              { id: 'instagram', icon: 'photo_camera',  label: 'Instagram', color: '#e1306c' },
-            ].map((p) => (
-              <div key={p.id} className={styles.platformPill}>
-                <span className="material-symbols-outlined icon-fill" style={{ color: p.color }}>{p.icon}</span>
-                <span>{p.label}</span>
-              </div>
-            ))}
-          </div> */}
         </div>
       </section>
 
-      {/* ── How it Works ── */}
+      <AdSlot slot={AD_SLOTS.top} />
+
+      {/* ── How it works ── */}
       <section className={styles.howItWorks} id="how-it-works">
         <div className={styles.sectionInner}>
           <div className={styles.sectionHeader}>
-            <h2>How it works</h2>
-<p>
-Three simple steps to download Instagram Reels in HD quality.
-</p>
+            <h2>How to use the {page.badge} tool</h2>
+            <p>Three simple steps. No signup, no software.</p>
           </div>
-          <div className={styles.stepsGrid}>
-            {[
-              { icon: 'content_copy',  color: 'var(--primary-fixed)',    textColor: 'var(--on-primary-fixed)',              title: 'Copy URL',        desc: 'Find the video you want and copy its URL from the browser or app share menu.' },
-              { icon: 'content_paste', color: 'var(--secondary-fixed)',  textColor: 'var(--on-secondary-fixed-variant)',    title: 'Paste Reel URL',  desc: 'Paste the link into DownloadShorts. Paste your Instagram Reel URL and prepare for download.' },
-              { icon: 'download_done', color: 'var(--tertiary-fixed)',   textColor: 'var(--on-tertiary-fixed-variant)',     title: 'Download Reel',   desc: 'Hit Download and your video saves directly to your device in seconds.' },
-            ].map((step) => (
-              <div key={step.title} className={styles.stepCard}>
-                <div className={styles.stepIcon} style={{ background: step.color, color: step.textColor }}>
-                  <span className="material-symbols-outlined">{step.icon}</span>
+          <ol className={styles.stepsGrid} style={{ listStyle: 'none', padding: 0 }}>
+            {page.steps.map((step, i) => (
+              <li key={step.title} className={styles.stepCard}>
+                <div
+                  className={styles.stepIcon}
+                  style={{
+                    background: ['var(--primary-fixed)', 'var(--secondary-fixed)', 'var(--tertiary-fixed)'][i % 3],
+                    color: ['var(--on-primary-fixed)', 'var(--on-secondary-fixed-variant)', 'var(--on-tertiary-fixed-variant)'][i % 3],
+                    fontWeight: 800,
+                    fontSize: 20,
+                  }}
+                  aria-hidden="true"
+                >
+                  {i + 1}
                 </div>
                 <h3>{step.title}</h3>
-                <p>{step.desc}</p>
-              </div>
+                <p>{step.text}</p>
+              </li>
             ))}
-          </div>
+          </ol>
         </div>
       </section>
 
@@ -228,7 +176,7 @@ Three simple steps to download Instagram Reels in HD quality.
           <div className={styles.bentoGrid}>
             <div className={`${styles.bentoCard} ${styles.bentoFeatured}`}>
               <h3>Crystal Clear Quality</h3>
-              <p>Download Instagram Reels in high quality without watermark. Never compromise on visual fidelity.</p>
+              <p>Always the best quality the source offers: up to 4K for YouTube, original resolution for Instagram Reels.</p>
               <div className={styles.bentoBadges}>
                 <span>4K UHD</span><span>1080p</span><span>MP4</span><span>MP3</span>
               </div>
@@ -236,17 +184,17 @@ Three simple steps to download Instagram Reels in HD quality.
             <div className={`${styles.bentoCard} ${styles.bentoFast}`}>
               <div>
                 <h4>Blazing Fast</h4>
-                <p>High-performance processing means no waiting. Links resolve in seconds.</p>
+                <p>Links resolve in seconds and downloads stream straight to your device.</p>
               </div>
-              <span className="material-symbols-outlined" style={{ fontSize: 48, color: 'var(--primary)' }}>bolt</span>
+              <span className="material-symbols-outlined" style={{ fontSize: 48, color: 'var(--primary)' }} aria-hidden="true">bolt</span>
             </div>
             <div className={`${styles.bentoCard} ${styles.bentoSmall}`}>
-              <span className="material-symbols-outlined" style={{ color: 'var(--secondary)', fontSize: 32 }}>security</span>
+              <span className="material-symbols-outlined" style={{ color: 'var(--secondary)', fontSize: 32 }} aria-hidden="true">security</span>
               <strong>Safe &amp; Secure</strong>
               <small>Encrypted connections only.</small>
             </div>
             <div className={`${styles.bentoCard} ${styles.bentoSmall}`}>
-              <span className="material-symbols-outlined" style={{ color: 'var(--tertiary)', fontSize: 32 }}>ads_click</span>
+              <span className="material-symbols-outlined" style={{ color: 'var(--tertiary)', fontSize: 32 }} aria-hidden="true">ads_click</span>
               <strong>No Account Needed</strong>
               <small>Works without any login.</small>
             </div>
@@ -254,75 +202,61 @@ Three simple steps to download Instagram Reels in HD quality.
         </div>
       </section>
 
-      {/* seo section */}
-      {/* SEO Content */}
-<section className={styles.seoSection}>
-  <div className={styles.sectionInner}>
+      {/* ── SEO content ── */}
+      <section className={styles.seoSection}>
+        <div className={styles.sectionInner}>
+          <div className={styles.seoHeader}>
+            <span className={styles.seoBadge}>{page.badge}</span>
+            <h2>{page.sections[0].h2}</h2>
+            <p>{intro}</p>
+            {moreIntro.map((t) => <p key={t} style={{ marginTop: 14 }}>{t}</p>)}
+          </div>
 
-    <div className={styles.seoHeader}>
-      <span className={styles.seoBadge}>
-        Instagram Reels Downloader
-      </span>
+          <div className={styles.seoGrid}>
+            {second && (
+              <div className={styles.seoCard}>
+                <h3>{second.h2}</h3>
+                {second.paragraphs.map((t) => (
+                  <p key={t} style={{ lineHeight: 1.75, color: '#555', marginBottom: 12 }}>{t}</p>
+                ))}
+              </div>
+            )}
+            <div className={styles.seoCard}>
+              <h3>Why choose DownloadShorts?</h3>
+              <ul className={styles.featureList}>
+                {page.benefits.map((b) => <li key={b}>&#10003; {b}</li>)}
+              </ul>
+            </div>
+          </div>
 
-      <h2>
-        Download Instagram Reels Without Watermark
-      </h2>
-
-      <p>
-        DownloadShorts is a free online Instagram Reels downloader
-        that lets you save Instagram Reel videos and audio in HD
-        quality. No login, no registration, and no watermark.
-      </p>
-    </div>
-
-    <div className={styles.seoGrid}>
-
-      <div className={styles.seoCard}>
-        <h3>How to Download Instagram Reels</h3>
-
-        <div className={styles.stepItem}>
-          <span>1</span>
-          <p>Open Instagram and copy the Reel URL.</p>
+          <div className={styles.faqSection}>
+            <h2>Frequently Asked Questions</h2>
+            {page.faq.map(({ question, answer }) => (
+              <div key={question} className={styles.faqItem}>
+                <h3>{question}</h3>
+                <p>{answer}</p>
+              </div>
+            ))}
+          </div>
         </div>
+      </section>
 
-        <div className={styles.stepItem}>
-          <span>2</span>
-          <p>Paste the link into DownloadShorts.</p>
+      <AdSlot slot={AD_SLOTS.mid} />
+
+      {/* ── Related tools (internal links) ── */}
+      <section className={styles.related} aria-labelledby="more-tools">
+        <div className={styles.sectionInner}>
+          <h2 id="more-tools">More free tools</h2>
+          <div className={styles.relatedGrid}>
+            {related.map((p) => (
+              <Link key={p.path} to={p.path} className={styles.relatedCard}>
+                <strong>{p.h1}</strong>
+                <span>{p.subtitle.split('. ')[0].replace(/\.$/, '')}.</span>
+              </Link>
+            ))}
+          </div>
         </div>
-
-        <div className={styles.stepItem}>
-          <span>3</span>
-          <p>Click Download and save the Reel instantly.</p>
-        </div>
-      </div>
-
-      <div className={styles.seoCard}>
-        <h3>Why Choose DownloadShorts?</h3>
-
-        <ul className={styles.featureList}>
-          <li>✓ Download Instagram Reels without watermark</li>
-          <li>✓ HD quality downloads</li>
-          <li>✓ Fast and secure processing</li>
-          <li>✓ No account required</li>
-          <li>✓ Mobile and desktop support</li>
-          <li>✓ Completely free to use</li>
-        </ul>
-      </div>
-
-    </div>
-
-    <div className={styles.faqSection}>
-      <h2>Frequently Asked Questions</h2>
-      {FAQ_ITEMS.map(({ question, answer }) => (
-        <div key={question} className={styles.faqItem}>
-          <h3>{question}</h3>
-          <p>{answer}</p>
-        </div>
-      ))}
-    </div>
-
-  </div>
-</section>
+      </section>
     </>
   );
 }

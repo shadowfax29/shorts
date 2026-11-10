@@ -2,9 +2,10 @@
  * Simple in-memory cache with lazy expiration.
  */
 export class SimpleCache {
-  constructor(ttlMs = 10 * 60 * 1000) {
+  constructor(ttlMs = 10 * 60 * 1000, maxEntries = 300) {
     this.cache = new Map();
     this.ttl = ttlMs;
+    this.maxEntries = maxEntries;
   }
 
   /**
@@ -26,6 +27,11 @@ export class SimpleCache {
    * Set an item in the cache.
    */
   set(key, value, customTtl = this.ttl) {
+    // Bound memory: Map keeps insertion order, so the first key is the oldest.
+    this.cache.delete(key);
+    while (this.cache.size >= this.maxEntries) {
+      this.cache.delete(this.cache.keys().next().value);
+    }
     this.cache.set(key, {
       value,
       expiry: Date.now() + customTtl,

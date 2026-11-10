@@ -1,9 +1,9 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import styles from './Nav.module.css';
+import { toolPages } from '../seo/pages.js';
 import logo from '../../public/logo.png'
 
 export default function Nav() {
-  const navigate = useNavigate();
 
   return (
     <header className={styles.nav}>
@@ -30,14 +30,11 @@ export default function Nav() {
   </span>
 </div>
 </Link>
-        <nav className={styles.links}>
-          <a href="/#how-it-works" onClick={(e) => {
-            e.preventDefault();
-            navigate('/');
-            setTimeout(() => {
-              document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' });
-            }, 100);
-          }}>How it works</a>
+        <nav className={styles.links} aria-label="Main">
+          {['/instagram-reels-downloader', '/youtube-video-downloader', '/youtube-video-clipper', '/youtube-to-mp3'].map((path) => {
+            const p = toolPages.find((t) => t.path === path);
+            return <Link key={path} to={path}>{p.nav}</Link>;
+          })}
         </nav>
       </div>
     </header>

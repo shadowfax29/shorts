@@ -31,7 +31,12 @@
 
 .links {
   display: flex;
-  gap: 2rem;
+  gap: 1.5rem;
+}
+
+@media (max-width: 900px) {
+  .links { gap: 1rem; }
+  .links a { font-size: 13px; }
 }
 
 .links a {

@@ -468,3 +468,41 @@
   .input { padding: 10px 8px; }
 }
 
+
+/* ── Related tools ── */
+.related {
+  padding: 4rem var(--margin-desktop) 5rem;
+}
+.related h2 {
+  text-align: center;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 2rem;
+  color: var(--on-surface);
+}
+.relatedGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+.relatedCard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 20px;
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  text-decoration: none;
+  color: var(--on-surface);
+  transition: transform 0.2s, border-color 0.2s;
+}
+.relatedCard:hover { transform: translateY(-2px); border-color: var(--primary); }
+.relatedCard strong { font-size: 15px; color: var(--primary); }
+.relatedCard span { font-size: 13px; line-height: 1.5; color: var(--on-surface-variant); }
+
+@media (max-width: 640px) {
+  .related { padding: 3rem var(--margin-mobile); }
+}

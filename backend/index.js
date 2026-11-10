@@ -1,595 +1,474 @@
 /**
  * DownloadShorts API Server
  * Wraps yt-dlp via child_process — no wrapper package required.
- * Requires yt-dlp + ffmpeg on PATH.
+ * Requires yt-dlp + ffmpeg (PATH, or YTDLP_PATH / FFMPEG_PATH env vars).
+ *
+ *   GET /api/info?url=            metadata + qualities (YouTube / Instagram / TikTok)
+ *   GET /api/download?url=…       full video (YouTube: &height=720)
+ *   GET /api/clip?url=&start=&end= cut a section out of a YouTube video
+ *   GET /api/audio?url=           MP3
+ *   GET /api/thumbnail?videoUrl=  proxied thumbnail (Instagram CDN tokens are session locked)
  */
 import express from 'express';
-import cors    from 'cors';
+import cors from 'cors';
 import compression from 'compression';
-import { spawn } from 'child_process';
-import { existsSync, writeFileSync } from 'fs';
+import { spawn, spawnSync } from 'child_process';
+import { existsSync, writeFileSync, createReadStream } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import http from 'http';
-import https from 'https';
+import { Readable } from 'stream';
+import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
+
 import { friendlyError, cookieArgs, COOKIE_FILES } from './lib/helpers.js';
 import { scrapeInstagramReel } from './lib/instagramScraper.js';
+import { pickInstagramFromYtdlp } from './lib/instagramYtdlp.js';
 import { infoCache } from './lib/cache.js';
-import ffmpeg from "fluent-ffmpeg";
-import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
-import fs from "fs";
-import os from "os";
-import path from "path";
-import { Readable } from "stream";
+import { createYtDlp, resolveBinary, sweepTempDirs } from './lib/ytdlp.js';
+import { rateLimit, Semaphore } from './lib/rateLimit.js';
+import { buildQualities, slimInfo, videoFormat, AUDIO_FORMAT } from './lib/youtube.js';
+import {
+  detectPlatform, normalizeUrl, parseYouTube, validateClipRange, safeFilename,
+} from './lib/urls.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const app  = express();
+const app = express();
 const PORT = process.env.PORT || 3001;
+
+const CLIP_MAX_SECONDS = Number(process.env.CLIP_MAX_SECONDS) || 600;
+const MAX_JOBS = Number(process.env.MAX_CONCURRENT_JOBS) || 3;
 
 // ──────────────────────────────────────────────
 // Write per-platform cookie files from env vars
 // On Render set: YOUTUBE_COOKIES_B64, INSTAGRAM_COOKIES_B64, TIKTOK_COOKIES_B64
 // ──────────────────────────────────────────────
 const COOKIES_DIR = __dirname;
-
 const COOKIE_ENV_MAP = {
-  YOUTUBE_COOKIES_B64:   COOKIE_FILES.youtube,
+  YOUTUBE_COOKIES_B64: COOKIE_FILES.youtube,
   INSTAGRAM_COOKIES_B64: COOKIE_FILES.instagram,
-  TIKTOK_COOKIES_B64:    COOKIE_FILES.tiktok,
+  TIKTOK_COOKIES_B64: COOKIE_FILES.tiktok,
 };
-
-
-
 for (const [envKey, filename] of Object.entries(COOKIE_ENV_MAP)) {
-  if (process.env[envKey]) {
-    try {
-      const decoded = Buffer.from(process.env[envKey], 'base64').toString('utf-8');
-      writeFileSync(join(COOKIES_DIR, filename), decoded, 'utf-8');
-      console.log(`${filename} written from ${envKey}`);
-    } catch (e) {
-      console.error(`Failed to write ${filename}:`, e.message);
-    }
+  if (!process.env[envKey]) continue;
+  try {
+    writeFileSync(join(COOKIES_DIR, filename), Buffer.from(process.env[envKey], 'base64').toString('utf-8'), 'utf-8');
+    console.log(`${filename} written from ${envKey}`);
+  } catch (e) {
+    console.error(`Failed to write ${filename}:`, e.message);
   }
 }
 
-// Resolve yt-dlp binary
-// On Linux/Docker (Render, Railway, etc.) it's on PATH at /usr/local/bin/yt-dlp
-// On Windows dev machine, winget installs to a non-PATH location — find it manually
-function resolveBin(name) {
-  // On Linux, binaries are on PATH — use directly
-  if (process.platform !== 'win32') return name;
+// ──────────────────────────────────────────────
+// Binaries
+// ──────────────────────────────────────────────
+const wingetBase = `${process.env.LOCALAPPDATA}\\Microsoft\\WinGet\\Packages`;
+const YTDLP_BIN = resolveBinary('yt-dlp', 'YTDLP_PATH', [
+  `${wingetBase}\\yt-dlp.yt-dlp_Microsoft.Winget.Source_8wekyb3d8bbwe\\yt-dlp.exe`,
+]);
+// Prefer a system ffmpeg (modern + ~3x faster); the bundled npm binary is a 2018 build.
+const systemFfmpeg = spawnSync('ffmpeg', ['-version'], { windowsHide: true }).status === 0;
+const FFMPEG_BIN = resolveBinary(
+  systemFfmpeg || !existsSync(ffmpegInstaller.path) ? 'ffmpeg' : ffmpegInstaller.path,
+  'FFMPEG_PATH',
+);
+console.log(`yt-dlp → ${YTDLP_BIN}`);
+console.log(`ffmpeg → ${FFMPEG_BIN}`);
 
-  const wingetBase = `${process.env.LOCALAPPDATA}\\Microsoft\\WinGet\\Packages`;
-  const candidates = {
-    'yt-dlp': [
-      `${wingetBase}\\yt-dlp.yt-dlp_Microsoft.Winget.Source_8wekyb3d8bbwe\\yt-dlp.exe`,
-    ],
-    'ffmpeg': [
-      `${wingetBase}\\yt-dlp.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-N-124716-g054dffd133-win64-gpl\\bin\\ffmpeg.exe`,
-      `${wingetBase}\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1.1-full_build\\bin\\ffmpeg.exe`,
-    ],
-  };
+const ytdlp = createYtDlp({
+  bin: YTDLP_BIN,
+  ffmpegBin: FFMPEG_BIN,
+  cookieArgsFor: (platform) => cookieArgs(platform, COOKIES_DIR),
+});
+const jobs = new Semaphore(MAX_JOBS);
+sweepTempDirs();
+setInterval(sweepTempDirs, 30 * 60 * 1000).unref();
 
-  for (const c of candidates[name] ?? []) {
-    if (existsSync(c)) {
-      console.log(`Resolved ${name} → ${c}`);
-      return c;
-    }
-  }
-  console.log(`${name} not found in winget paths, falling back to PATH`);
-  return name;
-}
+// ──────────────────────────────────────────────
+// Middleware
+// ──────────────────────────────────────────────
+app.set('trust proxy', 1);
 
-// const YTDLP_BIN  = resolveBin('yt-dlp');
-// const FFMPEG_BIN = resolveBin('ffmpeg');
-const YTDLP_BIN =
-  process.platform === "win32"
-    ? resolveBin("yt-dlp")
-    : "/usr/local/bin/yt-dlp";
-
-const FFMPEG_BIN =
-  process.platform === "win32"
-    ? resolveBin("ffmpeg")
-    : "/usr/bin/ffmpeg";
-console.log(`yt-dlp  → ${YTDLP_BIN}`);
-console.log(`ffmpeg  → ${FFMPEG_BIN}`);
-ffmpeg.setFfmpegPath(FFMPEG_BIN);
-
+const ALLOWED_ORIGINS = new Set([
+  'https://downloadshorts.com',
+  'https://www.downloadshorts.com',
+  'http://localhost:5173',
+  'http://localhost:4173',
+  ...(process.env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean),
+]);
 app.use(cors({
-  origin: (origin, cb) => {
-    const allowed = [
-      'http://localhost:5173',
-      'http://localhost:4173',
-    ];
-    // Allow any Vercel deployment URL + any custom domain
-    if (!origin || allowed.includes(origin) || origin.endsWith('.vercel.app')) {
-      cb(null, true);
-    } else {
-      cb(null, true); // open for now — restrict to your domain in production
-    }
-  }
+  origin: (origin, cb) => cb(null, !origin || ALLOWED_ORIGINS.has(origin) || /\.vercel\.app$/.test(new URL(origin).hostname)),
+  exposedHeaders: ['Content-Disposition', 'Content-Length'],
 }));
 app.use(compression());
-app.use(express.json({ limit: '10mb' }));
-
 app.use((req, res, next) => {
-  res.setTimeout(30000, () => {
-    res.status(503).json({ error: 'Request timeout' });
-  });
+  res.setHeader('X-Content-Type-Options', 'nosniff');
   next();
+});
+
+const infoLimiter = rateLimit({ windowMs: 60_000, max: 40 });
+const heavyLimiter = rateLimit({
+  windowMs: 60_000, max: 15, message: 'Too many downloads in a minute. Please wait a moment and try again.',
 });
 
 // ──────────────────────────────────────────────
 // Helpers
 // ──────────────────────────────────────────────
-
-function detectPlatform(url) {
-  try {
-    const h = new URL(url).hostname.replace('www.', '');
-    if (h.includes('youtube.com') || h.includes('youtu.be')) return 'youtube';
-    if (h.includes('tiktok.com'))    return 'tiktok';
-    if (h.includes('instagram.com')) return 'instagram';
-    return null;
-  } catch { return null; }
-}
-
-const GLOBAL_YTDLP_ARGS = [
-  '--no-check-certificate', '--no-config', '--no-cache-dir', '--no-call-home',
-  '--no-check-formats',
-  '--socket-timeout', '15',
-  '--extractor-retries', '1',
-  '--retries', '1',
-  '--fragment-retries', '1',
-  '--no-warnings',
-  '--quiet',
-  '--no-youtube-prefer-ffmpeg',
-  '--youtube-skip-dash-manifest',
-  '--youtube-skip-hls-manifest',
-  '--throttled-rate', '100K',
-  '--extractor-args', 'youtube:player_client=android,mobile;player_skip=webpage,configs',
-];
-
-const KEEPALIVE_AGENT = new https.Agent({ keepAlive: true, maxSockets: 16, timeout: 30000 });
+const BROWSER_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 // Request coalescing: deduplicate in-flight fetches for the same URL
-const inflightFetches = new Map();
-async function coalesceFetch(key, fetcher) {
-  const existing = inflightFetches.get(key);
+const inflight = new Map();
+function coalesce(key, fetcher) {
+  const existing = inflight.get(key);
   if (existing) return existing;
-  const promise = fetcher().finally(() => inflightFetches.delete(key));
-  inflightFetches.set(key, promise);
-  return promise;
+  const p = fetcher().finally(() => inflight.delete(key));
+  inflight.set(key, p);
+  return p;
 }
 
-/** Run yt-dlp and collect stdout as a string. Rejects on non-zero exit. */
-function ytDlpJson(args, platform) {
-  return new Promise((resolve, reject) => {
-    const proc = spawn(YTDLP_BIN, [...args, ...GLOBAL_YTDLP_ARGS, ...cookieArgs(platform, COOKIES_DIR), '--ffmpeg-location', FFMPEG_BIN], { windowsHide: true });
-    let out = '', err = '';
-    proc.stdout.on('data', d => (out += d));
-    proc.stderr.on('data', d => (err += d));
-    proc.on('close', code => code === 0 ? resolve(out.trim()) : reject(new Error(err.trim() || `yt-dlp exit ${code}`)));
-    proc.on('error', e => reject(new Error(
-      e.code === 'ENOENT'
-        ? `yt-dlp binary not found at: ${YTDLP_BIN}`
-        : e.message
-    )));
-  });
+function sendError(res, err) {
+  const { status, error } = friendlyError(err.message);
+  const body = { error };
+  if (process.env.NODE_ENV !== 'production') body.detail = err.message;
+  if (!res.headersSent) res.status(status).json(body);
 }
 
-/** Spawn yt-dlp and pipe stdout to res. Returns the child process. */
-function ytDlpStream(args, res, platform, rawInfo = null) {
-  const proc = spawn(YTDLP_BIN, [...args, ...GLOBAL_YTDLP_ARGS, ...cookieArgs(platform, COOKIES_DIR), '--ffmpeg-location', FFMPEG_BIN], { windowsHide: true });
-  
-  if (rawInfo) {
-    proc.stdin.write(rawInfo);
-    proc.stdin.end();
+function setDownloadHeaders(res, filename, contentType) {
+  res.setHeader('Content-Type', contentType);
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`);
+}
+
+/** AbortController that fires when the client goes away before we finished. */
+function abortOnDisconnect(res) {
+  const ac = new AbortController();
+  res.on('close', () => { if (!res.writableFinished) ac.abort(); });
+  return ac;
+}
+
+/** Quick validation shared by every endpoint that takes ?url= */
+function requireSupportedUrl(req, res) {
+  const raw = String(req.query.url || '').trim();
+  if (!raw) { res.status(400).json({ error: 'URL is required.' }); return null; }
+  const platform = detectPlatform(raw);
+  if (!platform) {
+    res.status(400).json({ error: 'Unsupported platform. Paste a YouTube or Instagram Reels URL.' });
+    return null;
   }
-
-  proc.stdout.pipe(res);
-  proc.stderr.on('data', d => process.stderr.write(d));
-  proc.on('error', e => {
-    console.error('[stream error]', e.message);
-    if (!res.headersSent) res.status(500).json({ error: 'Download failed.' });
-    else if (!res.writableEnded) res.end();
-  });
-  return proc;
+  return { url: normalizeUrl(raw), platform };
 }
 
+// ──────────────────────────────────────────────
+// Metadata
+// ──────────────────────────────────────────────
+async function fetchInstagram(url) {
+  let data;
+  // The HTML scraper is OFF by default: tested against a real public post it
+  // returned a *different* creator's video (Instagram's JS shell embeds
+  // unrelated media), i.e. fast but wrong. Opt in with IG_HTML_SCRAPER=1 only
+  // if you have verified it for your traffic.
+  if (process.env.IG_HTML_SCRAPER === '1') {
+    try {
+      data = await scrapeInstagramReel(url.replace('www.instagram.com', 'm.instagram.com'));
+    } catch (scrapeErr) {
+      console.log(`[instagram] HTML scrape failed (${scrapeErr.message}) → yt-dlp`);
+    }
+  }
+  if (!data) {
+    const raw = await ytdlp.json(
+      [url, '--dump-json', '--playlist-items', '1', '--skip-download'],
+      'instagram',
+      { timeoutMs: 45_000 },
+    );
+    data = pickInstagramFromYtdlp(JSON.parse(raw.split('\n')[0]));
+  }
+  return {
+    platform: 'instagram',
+    title: data.title,
+    thumbnail: data.thumbnail,
+    duration: data.duration ?? null,
+    uploader: data.uploader ?? null,
+    qualities: [],
+    caption: data.caption,
+    hashtags: data.hashtags,
+    // internal (stripped before reaching the browser)
+    videoUrl: data.videoUrl,
+    audioUrl: data.audioUrl,
+  };
+}
 
-app.get("/", (req, res) => {
-  res.json({
-    status: "online",
-    service: "DownloadShorts API"
-  });
-});
+async function fetchGeneric(url, platform) {
+  const raw = await ytdlp.json(
+    [url, '--dump-single-json', '--no-playlist', '--skip-download'],
+    platform,
+    { timeoutMs: 60_000 },
+  );
+  const meta = JSON.parse(raw);
+  const yt = platform === 'youtube' ? parseYouTube(url) : null;
+  return {
+    platform,
+    title: meta.title || 'Untitled',
+    thumbnail: meta.thumbnail || null,
+    duration: meta.duration || null,
+    uploader: meta.uploader || meta.channel || null,
+    qualities: platform === 'youtube' ? buildQualities(meta.formats) : [],
+    videoId: yt?.id ?? null,
+    isShort: Boolean(yt?.isShort) || (platform === 'youtube' && meta.duration > 0 && meta.duration <= 60),
+    rawInfo: JSON.stringify(slimInfo(meta)),
+  };
+}
+
+async function getInfo(url, platform, { force = false } = {}) {
+  if (!force) {
+    const hit = infoCache.get(url);
+    if (hit) return hit;
+  }
+  const data = await coalesce(`${platform}:${url}`, () =>
+    platform === 'instagram' ? fetchInstagram(url) : fetchGeneric(url, platform),
+  );
+  infoCache.set(url, data);
+  return data;
+}
+
+const publicInfo = ({ rawInfo, videoUrl, audioUrl, ...rest }) => rest;
 
 // ──────────────────────────────────────────────
-// GET /api/health — verify yt-dlp is reachable
+// Routes
 // ──────────────────────────────────────────────
+app.get('/', (req, res) => res.json({ status: 'online', service: 'DownloadShorts API' }));
+
 app.get('/api/health', async (req, res) => {
   try {
-    const version = await ytDlpJson(['--version']);
-    res.json({ ok: true, ytdlp: version.trim(), platform: process.platform });
+    const version = await ytdlp.json(['--version'], null, { timeoutMs: 10_000 });
+    res.json({ ok: true, ytdlp: version, platform: process.platform, activeJobs: jobs.active });
   } catch (err) {
     res.status(503).json({ ok: false, error: err.message });
   }
 });
 
-
-app.get('/api/debug', async (req, res) => {
+app.get('/api/info', infoLimiter, async (req, res) => {
+  const target = requireSupportedUrl(req, res);
+  if (!target) return;
   try {
-    const version = await ytDlpJson(['--version']);
-
-    res.json({
-      success: true,
-      platform: process.platform,
-      nodeVersion: process.version,
-      ytdlpVersion: version,
-      ytdlpPath: YTDLP_BIN,
-      ffmpegPath: FFMPEG_BIN,
-      path: process.env.PATH,
-      cookiesPresent: existsSync(COOKIES_PATH),
-    });
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      error: err.message,
-      ytdlpPath: YTDLP_BIN,
-      ffmpegPath: FFMPEG_BIN,
-      path: process.env.PATH,
-    });
-  }
-});
-
-
-app.get('/api/test-youtube', async (req, res) => {
-  try {
-    const result = await ytDlpJson([
-      'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-      '--dump-json',
-      '--no-playlist',
-      '--no-warnings'
-    ]);
-
-    const meta = JSON.parse(result);
-
-    res.json({
-      success: true,
-      title: meta.title,
-      uploader: meta.uploader,
-      duration: meta.duration,
-    });
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      error: err.message,
-    });
-  }
-});
-
-app.get('/api/formats', async (req, res) => {
-  const { url } = req.query;
-
-  if (!url) {
-    return res.status(400).json({
-      error: 'url query parameter required'
-    });
-  }
-
-  try {
-    const result = await ytDlpJson([
-      url,
-      '--list-formats',
-      '--no-playlist'
-    ]);
-
-    res.type('text/plain').send(result);
-  } catch (err) {
-    res.status(500).send(err.message);
-  }
-});
-
-// ──────────────────────────────────────────────
-// GET /api/info?url=…
-// ──────────────────────────────────────────────
-app.get('/api/info', async (req, res) => {
-  const { url, force } = req.query;
-  if (!url) return res.status(400).json({ error: 'URL is required.' });
-
-  const platform = detectPlatform(url);
-  if (!platform) return res.status(400).json({
-    error: 'Unsupported platform. Paste a YouTube, TikTok, or Instagram Reels URL.',
-  });
-
-  const cacheKey = url.trim();
-
-  // Check cache unless force refresh is requested
-  if (force !== 'true') {
-    const cached = infoCache.get(cacheKey);
-    if (cached) {
-      console.log(`[Cache HIT] /api/info for ${platform}: ${cacheKey}`);
-      const clientResponse = { ...cached };
-      delete clientResponse.rawInfo;
-      return res.json(clientResponse);
-    }
-  }
-  console.log(`[Cache MISS] /api/info for ${platform}: ${cacheKey}`);
-
-  try {
-    // Instagram: use mobile version which is smaller/faster
-    if (platform === 'instagram') {
-      const scraped = await coalesceFetch('ig:' + cacheKey, () => {
-        const mobileUrl = url.replace('www.instagram.com', 'm.instagram.com');
-        return scrapeInstagramReel(mobileUrl);
-      });
-      const responseData = {
-        platform,
-        title: scraped.title,
-        thumbnail: scraped.thumbnail,
-        duration: null,
-        uploader: null,
-        qualities: [],
-        videoUrl: scraped.videoUrl,
-        audioUrl: scraped.audioUrl,
-        caption: scraped.caption,
-        hashtags: scraped.hashtags,
-      };
-      infoCache.set(cacheKey, responseData);
-      return res.json(responseData);
-    }
-
-    const raw  = await coalesceFetch('yt:' + cacheKey, () =>
-      ytDlpJson([ url, '--dump-json', '--no-playlist', '--no-warnings', '--flat-playlist' ], platform)
-    );
-    const meta = JSON.parse(raw);
-
-    // Build quality list for YouTube only
-    let qualities = [];
-    if (platform === 'youtube' && Array.isArray(meta.formats)) {
-      const seen = new Set();
-      qualities = meta.formats
-        .filter(f => f.vcodec && f.vcodec !== 'none' && f.height >= 360)
-        .sort((a, b) => b.height - a.height)
-        .reduce((acc, f) => {
-          const label = `${f.height}p`;
-          if (!seen.has(label)) {
-            seen.add(label);
-            acc.push({
-              formatId: f.format_id,
-              label,
-              height:   f.height,
-              fps:      f.fps   || null,
-              ext:      f.ext   || 'mp4',
-              filesize: f.filesize || f.filesize_approx || null,
-            });
-          }
-          return acc;
-        }, [])
-        .slice(0, 8);
-    }
-
-    const responseData = {
-      platform,
-      title:     meta.title     || 'Untitled',
-      thumbnail: meta.thumbnail || null,
-      duration:  meta.duration  || null,
-      uploader:  meta.uploader  || meta.channel || null,
-      qualities,
-      rawInfo:   raw  // Keep the full raw JSON metadata in the cache
-    };
-    infoCache.set(cacheKey, responseData);
-
-    const clientResponse = { ...responseData };
-    delete clientResponse.rawInfo;
-    res.json(clientResponse);
+    const info = await getInfo(target.url, target.platform, { force: req.query.force === 'true' });
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(publicInfo(info));
   } catch (err) {
     console.error('[/api/info]', err.message);
-    const { status, error } = friendlyError(err.message);
-    // In development expose the raw error for debugging
-    const body = { error };
-    if (process.env.NODE_ENV !== 'production') body.detail = err.message;
-    res.status(status).json(body);
+    sendError(res, err);
   }
 });
 
+/** Stream a finished temp file to the client, then delete it. */
+function sendTempFile(res, { file, size, cleanup }, filename, contentType) {
+  setDownloadHeaders(res, filename, contentType);
+  res.setHeader('Content-Length', size);
+  const stream = createReadStream(file);
+  res.on('close', () => { stream.destroy(); cleanup(); });
+  stream.on('error', () => res.destroy());
+  stream.pipe(res);
+}
 
-app.get("/api/audio", async (req, res) => {
-  const { videoUrl } = req.query;
-  console.log("========== AUDIO STREAMING ==========");
-  console.log("Video URL:", videoUrl);
-  console.log("FFmpeg binary:", FFMPEG_BIN);
-
-  if (!videoUrl) {
-    return res.status(400).json({
-      error: "videoUrl is required"
-    });
+/** Run a yt-dlp job (CPU/bandwidth heavy) behind the concurrency cap. */
+async function runFileJob(req, res, { url, args, platform, cachedInfo, filename, contentType }) {
+  const release = jobs.tryAcquire();
+  if (!release) {
+    res.setHeader('Retry-After', '10');
+    return res.status(503).json({ error: 'Our servers are busy right now. Please try again in a few seconds.' });
   }
-
-  res.setHeader('Content-Type', 'audio/mpeg');
-  res.setHeader('Content-Disposition', 'attachment; filename="audio.mp3"');
-
-  const command = ffmpeg(videoUrl)
-    .noVideo()
-    .audioCodec("libmp3lame")
-    .format("mp3")
-    .on("start", cmd => {
-      console.log("FFmpeg Command:", cmd);
-    })
-    .on("error", (err) => {
-      console.error("[FFmpeg error]", err.message);
-      if (!res.headersSent) {
-        res.status(500).json({
-          error: "Audio extraction failed"
-        });
-      }
-    });
-
-  command.pipe(res, { end: true });
-
-  // Kill ffmpeg if client disconnects mid-stream
-  req.on('close', () => {
-    try {
-      command.kill('SIGTERM');
-    } catch (e) {
-      console.error('Failed to kill ffmpeg process on request close:', e.message);
-    }
-  });
-});
-
-// ──────────────────────────────────────────────
-// GET /api/download?url=…&platform=…&formatId=…
-// Streams video directly to the browser
-// ──────────────────────────────────────────────
-app.get('/api/download', async (req, res) => {
-  const { url, platform, formatId } = req.query;
-  if (!url) return res.status(400).json({ error: 'URL is required.' });
-
-  // Instagram: scrape CDN URL and proxy-stream it
-  if (platform === 'instagram') {
-    try {
-      const cacheKey = url.trim();
-      let videoUrl;
-      const cached = infoCache.get(cacheKey);
-      
-      if (cached && cached.videoUrl) {
-        console.log(`[Cache HIT] /api/download instagram: ${cacheKey}`);
-        videoUrl = cached.videoUrl;
-      } else {
-        console.log(`[Cache MISS] /api/download instagram: ${cacheKey}`);
-        const scraped = await scrapeInstagramReel(url);
-        videoUrl = scraped.videoUrl;
-        
-        infoCache.set(cacheKey, {
-          platform,
-          title: scraped.title,
-          thumbnail: scraped.thumbnail,
-          duration: null,
-          uploader: null,
-          qualities: [],
-          videoUrl: scraped.videoUrl,
-          audioUrl: scraped.audioUrl,
-          caption: scraped.caption,
-          hashtags: scraped.hashtags,
-        });
-      }
-
-      const upstream = await fetch(videoUrl, {
-        agent: KEEPALIVE_AGENT,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-          'Referer': 'https://www.instagram.com/',
-        },
-        keepalive: true,
-      });
-      if (!upstream.ok) return res.status(502).json({ error: 'Failed to fetch video from Instagram CDN.' });
-      res.setHeader('Content-Type', upstream.headers.get('content-type') || 'video/mp4');
-      res.setHeader('Content-Disposition', 'attachment; filename="reel.mp4"');
-      const ct = upstream.headers.get('content-length');
-      if (ct) res.setHeader('Content-Length', ct);
-      Readable.fromWeb(upstream.body).pipe(res);
-    } catch (err) {
-      console.error('[/api/download instagram]', err.message);
-      res.status(503).json({ error: err.message });
-    }
-    return;
-  }
-
-  // Format selector:
-  // YouTube → merge chosen video stream with best audio
-  // TikTok / Instagram → best single-file mp4 (no watermark for TikTok via format selector)
-  let format;
-  if (platform === 'youtube' && formatId) {
-    // format = `${formatId}+bestaudio[ext=m4a]/${formatId}+bestaudio/best`;
-    format = `bestvideo[height<=${req.query.height || 720}]+bestaudio/best`;
-  } else if (platform === 'tiktok') {
-    // prefer non-watermarked format (format id often contains 'nowatermark' or is play_addr)
-    format = 'best[format_id*=no_watermark]/best[ext=mp4]/best';
-  } else {
-    format = 'best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best';
-  }
-
-  res.setHeader('Content-Type', 'video/mp4');
-  res.setHeader('Content-Disposition', 'attachment; filename="video.mp4"');
-
-  const cacheKey = url.trim();
-  const cached = infoCache.get(cacheKey);
-
-  let downloadArgs;
-  let rawInfo = null;
-
-  if (cached && cached.rawInfo) {
-    console.log(`[Cache HIT] /api/download YouTube/TikTok using load-info-json: ${cacheKey}`);
-    rawInfo = cached.rawInfo;
-    downloadArgs = [ '--load-info-json', '-', '-f', format, '--merge-output-format', 'mp4', '-o', '-' ];
-  } else {
-    console.log(`[Cache MISS] /api/download YouTube/TikTok standard fetch: ${cacheKey}`);
-    downloadArgs = [ url, '-f', format, '--merge-output-format', 'mp4', '--no-playlist', '-o', '-' ];
-  }
-
-  const proc = ytDlpStream(
-    downloadArgs,
-    res,
-    platform,
-    rawInfo
-  );
-
-  proc.on('close', (code) => {
-    if (code !== 0 && !res.writableEnded) res.end();
-  });
-
-  // Kill yt-dlp if client disconnects mid-stream
-  req.on('close', () => proc.kill('SIGTERM'));
-});
-
-// ──────────────────────────────────────────────
-// GET /api/thumbnail?videoUrl=…
-// Re-fetches a fresh thumbnail URL via yt-dlp and streams it to the browser.
-// Needed for Instagram whose CDN tokens are session-locked and expire fast.
-// ──────────────────────────────────────────────
-app.get('/api/thumbnail', async (req, res) => {
-  const { videoUrl } = req.query;
-  if (!videoUrl) return res.status(400).end();
-
-  const fetchAndStream = async (thumbUrl) => {
-    const imgRes = await fetch(thumbUrl, {
-      agent: KEEPALIVE_AGENT,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Referer':    'https://www.instagram.com/',
-      },
-      keepalive: true,
-    });
-    if (!imgRes.ok) return false;
-    res.setHeader('Content-Type', imgRes.headers.get('content-type') || 'image/jpeg');
-    res.setHeader('Cache-Control', 'public, max-age=3600');
-    const buf = await imgRes.arrayBuffer();
-    res.end(Buffer.from(buf));
-    return true;
-  };
-
-  // Check cache first (no yt-dlp call needed)
-  const cached = infoCache.get(videoUrl.trim());
-  if (cached?.thumbnail) {
-    if (await fetchAndStream(cached.thumbnail)) return;
-  }
-
-  // Fall back to yt-dlp for uncached URLs
+  const ac = abortOnDisconnect(res);
   try {
-    const raw  = await ytDlpJson([ videoUrl, '--dump-json', '--no-playlist', '--no-warnings', '--skip-download' ], detectPlatform(videoUrl));
-    const meta = JSON.parse(raw);
-    const thumbUrl = meta.thumbnail;
-    if (!thumbUrl) return res.status(404).end();
-    if (await fetchAndStream(thumbUrl)) return;
-    res.status(502).end();
+    let result;
+    try {
+      result = cachedInfo
+        ? await ytdlp.toFile(['--load-info-json', '-', ...args], platform, { signal: ac.signal, stdin: cachedInfo })
+        : null;
+    } catch (e) {
+      if (ac.signal.aborted) return;
+      console.warn('[job] cached-info run failed, retrying from URL:', e.message.slice(0, 200));
+    }
+    result ??= await ytdlp.toFile([url, ...args], platform, { signal: ac.signal });
+    release();
+    if (ac.signal.aborted) return result.cleanup();
+    sendTempFile(res, result, filename, contentType);
+  } catch (err) {
+    if (ac.signal.aborted) return;
+    console.error('[job]', err.message.slice(0, 300));
+    sendError(res, err);
+  } finally {
+    release(); // idempotent
+  }
+}
+
+// Instagram: proxy-stream the CDN file (no CPU, supports resume via Range)
+async function proxyStream(req, res, upstreamUrl, filename) {
+  const ac = abortOnDisconnect(res);
+  const headers = { 'User-Agent': BROWSER_UA, Referer: 'https://www.instagram.com/' };
+  if (req.headers.range) headers.Range = req.headers.range;
+
+  const upstream = await fetch(upstreamUrl, { headers, signal: ac.signal });
+  if (!upstream.ok && upstream.status !== 206) {
+    return res.status(502).json({ error: 'Failed to fetch video from Instagram. Please try again.' });
+  }
+  res.status(upstream.status);
+  setDownloadHeaders(res, filename, upstream.headers.get('content-type') || 'video/mp4');
+  for (const h of ['content-length', 'content-range', 'accept-ranges']) {
+    const v = upstream.headers.get(h);
+    if (v) res.setHeader(h, v);
+  }
+  const body = Readable.fromWeb(upstream.body);
+  body.on('error', () => res.destroy());
+  body.pipe(res);
+}
+
+app.get('/api/download', heavyLimiter, async (req, res) => {
+  const target = requireSupportedUrl(req, res);
+  if (!target) return;
+  const { url, platform } = target;
+
+  try {
+    const info = await getInfo(url, platform);
+    const filename = safeFilename(req.query.title || info.title, 'mp4');
+
+    if (platform === 'instagram') {
+      if (info.videoUrl) return await proxyStream(req, res, info.videoUrl, filename);
+      // No progressive file (DASH only) → merge with yt-dlp
+      return await runFileJob(req, res, {
+        url, args: ['-f', 'bv*+ba/b', '--merge-output-format', 'mp4', '--playlist-items', '1'],
+        platform, filename, contentType: 'video/mp4',
+      });
+    }
+
+    const format = platform === 'youtube'
+      ? videoFormat(req.query.height)
+      : 'b[format_id*=no_watermark]/b[ext=mp4]/b';
+
+    await runFileJob(req, res, {
+      url,
+      args: ['-f', format, '--merge-output-format', 'mp4', '--no-playlist'],
+      platform,
+      cachedInfo: info.rawInfo,
+      filename,
+      contentType: 'video/mp4',
+    });
+  } catch (err) {
+    console.error('[/api/download]', err.message.slice(0, 300));
+    sendError(res, err);
+  }
+});
+
+// ──────────────────────────────────────────────
+// GET /api/clip?url=…&start=30&end=90&height=720
+// Cuts a section out of a YouTube video (works for Shorts and long videos).
+// ──────────────────────────────────────────────
+app.get('/api/clip', heavyLimiter, async (req, res) => {
+  const target = requireSupportedUrl(req, res);
+  if (!target) return;
+  if (target.platform !== 'youtube') {
+    return res.status(400).json({ error: 'Clipping is only available for YouTube videos.' });
+  }
+
+  try {
+    const info = await getInfo(target.url, 'youtube');
+    const range = validateClipRange(req.query.start, req.query.end, {
+      duration: info.duration, maxSeconds: CLIP_MAX_SECONDS,
+    });
+    if (range.error) return res.status(400).json({ error: range.error });
+
+    const length = range.end - range.start;
+    const args = [
+      '-f', videoFormat(req.query.height),
+      '--merge-output-format', 'mp4',
+      '--no-playlist',
+      '--download-sections', `*${range.start}-${range.end}`,
+      // Frame-accurate cuts for short clips; long clips snap to keyframes (much faster)
+      ...(length <= 180 ? ['--force-keyframes-at-cuts'] : []),
+    ];
+    const base = safeFilename(req.query.title || info.title, 'mp4').replace(/\.mp4$/, '');
+    await runFileJob(req, res, {
+      url: target.url, args, platform: 'youtube', cachedInfo: info.rawInfo,
+      filename: `${base}-clip-${Math.round(range.start)}s-${Math.round(range.end)}s.mp4`,
+      contentType: 'video/mp4',
+    });
+  } catch (err) {
+    console.error('[/api/clip]', err.message.slice(0, 300));
+    sendError(res, err);
+  }
+});
+
+// ──────────────────────────────────────────────
+// GET /api/audio?url=…   → MP3
+// ──────────────────────────────────────────────
+const CDN_HOST_RE = /(^|\.)(cdninstagram\.com|fbcdn\.net)$/;
+
+app.get('/api/audio', heavyLimiter, async (req, res) => {
+  const target = requireSupportedUrl(req, res);
+  if (!target) return;
+  const { url, platform } = target;
+
+  try {
+    const info = await getInfo(url, platform);
+    const filename = safeFilename(req.query.title || info.title, 'mp3', 'audio');
+
+    // Instagram with a direct CDN file: stream through ffmpeg, no temp file.
+    let cdn = null;
+    try { cdn = info.videoUrl ? new URL(info.videoUrl) : null; } catch { /* ignore */ }
+    if (platform === 'instagram' && cdn && cdn.protocol === 'https:' && CDN_HOST_RE.test(cdn.hostname)) {
+      const release = jobs.tryAcquire();
+      if (!release) return res.status(503).json({ error: 'Our servers are busy right now. Please try again in a few seconds.' });
+      setDownloadHeaders(res, filename, 'audio/mpeg');
+      const ff = spawn(FFMPEG_BIN, [
+        '-hide_banner', '-loglevel', 'error', '-i', cdn.href,
+        '-vn', '-c:a', 'libmp3lame', '-q:a', '2', '-f', 'mp3', 'pipe:1',
+      ], { windowsHide: true });
+      ff.stdout.pipe(res);
+      ff.stderr.on('data', (d) => console.error('[ffmpeg]', String(d).trim()));
+      ff.on('error', () => res.destroy());
+      ff.on('close', () => { release(); if (!res.writableEnded) res.end(); });
+      res.on('close', () => ff.kill('SIGKILL'));
+      return;
+    }
+
+    await runFileJob(req, res, {
+      url,
+      args: ['-f', AUDIO_FORMAT, '-x', '--audio-format', 'mp3', '--audio-quality', '2', '--no-playlist'],
+      platform,
+      cachedInfo: platform === 'instagram' ? null : info.rawInfo,
+      filename, contentType: 'audio/mpeg',
+    });
+  } catch (err) {
+    console.error('[/api/audio]', err.message.slice(0, 300));
+    sendError(res, err);
+  }
+});
+
+// ──────────────────────────────────────────────
+// GET /api/thumbnail?videoUrl=<page url>
+// Instagram CDN tokens are session-locked and expire fast, so we proxy.
+// ──────────────────────────────────────────────
+app.get('/api/thumbnail', infoLimiter, async (req, res) => {
+  const raw = String(req.query.videoUrl || '').trim();
+  const platform = detectPlatform(raw);
+  if (!platform) return res.status(400).end();
+
+  try {
+    const url = normalizeUrl(raw);
+    const info = await getInfo(url, platform);
+    const thumb = info.thumbnail;
+    if (!thumb || !/^https:\/\//.test(thumb)) return res.status(404).end();
+
+    const img = await fetch(thumb, {
+      headers: { 'User-Agent': BROWSER_UA, Referer: 'https://www.instagram.com/' },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!img.ok) return res.status(502).end();
+    res.setHeader('Content-Type', img.headers.get('content-type') || 'image/jpeg');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.end(Buffer.from(await img.arrayBuffer()));
   } catch (err) {
     console.error('[thumbnail]', err.message);
     res.status(502).end();
   }
 });
 
-// ──────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`DownloadShorts API → http://localhost:${PORT}`);
-  console.log('Requires yt-dlp + ffmpeg on PATH.');
 });

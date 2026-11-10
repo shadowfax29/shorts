@@ -21,14 +21,13 @@
 
 ## P2 (should-do — meaningful upside)
 
-- [ ] Publish dedicated landing pages per high-intent keyword
-      (`/instagram-reel-video-downloader`, `/instagram-reel-audio-downloader`,
-      `/download-reels-without-watermark`) and link them from the footer
+- [x] Publish dedicated landing pages per high-intent keyword (6 pages, see `src/seo/pages.js`),
+      linked from nav, footer and a "More free tools" block on every page
 - [ ] Add a small guides/FAQ content hub (how-to articles) to build topical authority
 - [ ] Lazy-load below-the-fold imagery and add explicit `width`/`height` on thumbnails
 - [ ] Serve thumbnails through a cache/CDN with immutable cache headers
-- [ ] Add `lastmod` automation so the sitemap stays fresh
-- [ ] Add a real `404.html` route (not the landing page) with helpful links
+- [x] `lastmod` automation: sitemap is generated from `pages.js` on every build
+- [x] Real not-found page (noindex) with links to every tool
 
 ## P3 (nice-to-have — monitor & iterate)
 

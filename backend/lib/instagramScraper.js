@@ -35,7 +35,9 @@ function getFetchOptions() {
   return {
     headers: BASE_HEADERS,
     keepalive: true,
-    signal: AbortSignal.timeout(15000),
+    // Fail fast: when the HTML has no media the caller falls back to yt-dlp,
+    // so there is no point waiting long on a slow/blocked response.
+    signal: AbortSignal.timeout(8000),
   };
 }
 
@@ -114,6 +116,9 @@ function extractHashtags(caption) {
 
 export async function scrapeInstagramReel(url, fetchFn = globalThis.fetch) {
   const res = await fetchFn(url, getFetchOptions());
+  if (res.ok === false) {
+    throw new Error(`Instagram returned HTTP ${res.status}. The reel may be private or removed.`);
+  }
   const html = await res.text();
 
   /* Single-pass meta extraction — ~10× faster than the old parseMeta loop */

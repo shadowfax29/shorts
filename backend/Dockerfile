@@ -18,6 +18,9 @@ RUN npm install --omit=dev
 
 COPY . .
 
+ENV NODE_ENV=production
 EXPOSE 3001
 
-CMD ["node", "index.js"]
+# YouTube/Instagram change often and old yt-dlp builds break. Self-update on every
+# boot (non-fatal if offline), then start the API.
+CMD ["sh", "-c", "yt-dlp -U || true; exec node index.js"]

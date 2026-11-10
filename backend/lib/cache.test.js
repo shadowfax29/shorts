@@ -65,3 +65,13 @@ describe('SimpleCache', () => {
     assert.equal(cache.get('key2'), 'value2');
   });
 });
+
+describe('SimpleCache maxEntries', () => {
+  it('evicts the oldest entry when full', () => {
+    const c = new SimpleCache(60_000, 2);
+    c.set('a', 1); c.set('b', 2); c.set('c', 3);
+    assert.equal(c.get('a'), null);
+    assert.equal(c.get('b'), 2);
+    assert.equal(c.get('c'), 3);
+  });
+});

@@ -8,7 +8,7 @@
     <!-- Primary SEO fallbacks (overridden per-page by react-helmet-async).
          Title/description/OG/Twitter live in each route's Helmet so the
          pre-rendered HTML never contains duplicate head tags. -->
-    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <!-- robots meta lives in PageHead (react-helmet) so noindex screens can override it -->
     <meta name="author" content="DownloadShorts" />
     <meta name="application-name" content="DownloadShorts" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
@@ -20,10 +20,6 @@
 
     <!-- Canonical — overridden per-page by react-helmet-async -->
     <!-- DO NOT add a hardcoded canonical here; it would apply to every route -->
-
-    <!-- Internationalization -->
-    <link rel="alternate" hreflang="x-default" href="https://downloadshorts.com/" />
-    <link rel="alternate" hreflang="en" href="https://downloadshorts.com/" />
 
     <!-- Favicons & App Icons -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico" sizes="16x16 32x32 48x48 96x96" />
@@ -68,8 +64,9 @@
           "@type": "WebSite",
           "@id": "https://downloadshorts.com/#website",
           "url": "https://downloadshorts.com/",
-          "name": "DownloadShorts - Instagram Reels Downloader",
-          "description": "Free online Instagram Reels downloader. Save Instagram Reel videos and audio in HD quality without watermark. No login required.",
+          "name": "DownloadShorts",
+          "alternateName": "DownloadShorts - Instagram Reels & YouTube Downloader",
+          "description": "Free online Instagram Reels and YouTube video downloader. Save Reels, Shorts and long videos in HD, cut YouTube clips and extract MP3 audio. No login required.",
           "publisher": { "@id": "https://downloadshorts.com/#organization" },
           "inLanguage": "en"
         },
@@ -80,7 +77,8 @@
           "url": "https://downloadshorts.com",
           "logo": "https://downloadshorts.com/logo.png",
           "image": "https://downloadshorts.com/og-image.png",
-          "description": "Free Instagram Reels downloader to save Instagram videos and audio in HD quality without watermark.",
+          "description": "Free Instagram Reels and YouTube downloader: save videos in HD, cut YouTube clips and extract MP3 audio. No login required.",
+          "featureList": ["Instagram Reels downloader", "YouTube Shorts downloader", "YouTube video downloader up to 4K", "YouTube clip maker", "Video to MP3 audio extraction"],
           "applicationCategory": "MultimediaApplication",
           "operatingSystem": "Any",
           "browserRequirements": "Requires JavaScript",
@@ -101,22 +99,19 @@
 
   <!-- SEO Fallback Content -->
   <noscript>
-    <h1>DownloadShorts - Instagram Reels Downloader</h1>
-
+    <p><strong>DownloadShorts - Instagram Reels &amp; YouTube Video Downloader</strong></p>
     <p>
-      DownloadShorts is a free online Instagram Reels downloader
-      that lets you save Instagram Reel videos and audio
-      in HD quality without watermark.
+      DownloadShorts is a free online downloader for Instagram Reels, YouTube Shorts and
+      YouTube videos. Save videos in HD, cut YouTube clips and extract MP3 audio. JavaScript is
+      required to use the tool.
     </p>
-
-    <h2>Features</h2>
     <ul>
-      <li>Download Instagram Reels</li>
-      <li>Download Instagram Reel Audio</li>
-      <li>HD Quality Downloads</li>
-      <li>No Watermark</li>
-      <li>No Login Required</li>
-      <li>Works on Mobile & Desktop</li>
+      <li><a href="/instagram-reels-downloader">Instagram Reels Downloader</a></li>
+      <li><a href="/instagram-reel-audio-downloader">Instagram Reel Audio Downloader</a></li>
+      <li><a href="/youtube-video-downloader">YouTube Video Downloader</a></li>
+      <li><a href="/youtube-shorts-downloader">YouTube Shorts Downloader</a></li>
+      <li><a href="/youtube-video-clipper">YouTube Clip Maker</a></li>
+      <li><a href="/youtube-to-mp3">YouTube to MP3</a></li>
     </ul>
   </noscript>
 
