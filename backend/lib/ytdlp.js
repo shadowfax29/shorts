@@ -24,6 +24,10 @@ const BASE_ARGS = [
   '--retries', '3',
   '--fragment-retries', '3',
   '--concurrent-fragments', '4',
+  // YouTube needs a JS runtime to solve its signature/n challenges; without one only
+  // image formats come back ("Requested format is not available"). yt-dlp enables
+  // Deno by default, but our image ships Node, so enable that explicitly.
+  '--js-runtimes', 'node',
 ];
 
 export function createYtDlp({ bin, ffmpegBin, cookieArgsFor }) {
